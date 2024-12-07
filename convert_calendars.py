@@ -89,18 +89,24 @@ def convert_calendar(date, from_calendar, to_calendar):
     if not is_date_valid(date, from_calendar):
         raise ValueError("Invalid date")
 
-    if from_calendar not in ["EC", "GC"]:
-        raise ValueError("Invalid from_calendar")
-
-    if to_calendar not in ["EC", "GC"]:
-        raise ValueError("Invalid to_calendar")
+    if [from_calendar, to_calendar] != [
+        "EC",
+        "GC",
+    ] and [
+        from_calendar,
+        to_calendar,
+    ] != [
+        "GC",
+        "EC",
+    ]:
+        raise ValueError("Invalid calendar systems provided")
 
     day_count = get_absolute_day_count(date, from_calendar)
 
-    DAY_DIFFERENCE = 2430
+    EC_GC_DAY_DIFFERENCE = 2430
     if from_calendar == "EC":
-        day_count += DAY_DIFFERENCE
+        day_count += EC_GC_DAY_DIFFERENCE
     else:
-        day_count -= DAY_DIFFERENCE
+        day_count -= EC_GC_DAY_DIFFERENCE
 
     return get_date_from_absolute_day_count(day_count, to_calendar)

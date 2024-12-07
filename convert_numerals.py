@@ -25,14 +25,15 @@ arabic_geez_map = {value: key for key, value in geez_arabic_map.items()}
 
 
 def split_arabic_num(arabic_num):
-    split_length = 2
+    arabic_num = str(arabic_num)
+    chunk_length = 2
     if len(arabic_num) % 2 == 1:
         arabic_num = "0" + arabic_num
 
     return [
-        arabic_num[i : i + split_length]
-        for i in range(len(arabic_num) - split_length, -1, -split_length)
-    ][::-1]
+        arabic_num[i : i + chunk_length]
+        for i in range(0, len(arabic_num), chunk_length)
+    ]
 
 
 def arabic_to_geez_chunk(arabic_chunk, chunk_index):
@@ -55,32 +56,70 @@ def arabic_to_geez_chunk(arabic_chunk, chunk_index):
 
 
 def convert_arabic_to_geez(arabic_num):
-    split_num = split_arabic_num(arabic_num)
+    arabic_chunks = split_arabic_num(arabic_num)
 
     geez_num = ""
-    for i in range(len(split_num)):
-        geez_num += arabic_to_geez_chunk(split_num[i], len(split_num) - 1 - i)
+    for i in range(len(arabic_chunks)):
+        geez_num += arabic_to_geez_chunk(arabic_chunks[i], len(arabic_chunks) - 1 - i)
 
     return geez_num
 
 
-# print(split_arabic_num("13802"))
-# print(split_arabic_num("7654321"))
+def geez_to_arabic_chunk(geez_num):
+    if len(geez_num) == 0:
+        return 1
 
-# convert_arabic_to_geez("7654321")
-print(convert_arabic_to_geez("7654321"))  # ፯፻ ፷፭፼ ፵፫፻ ፳፩
-print(convert_arabic_to_geez("7650021"))  # ፯፻ ፷፭፼ ፳፩
-print(convert_arabic_to_geez("7650121"))  # ፯፻ ፷፭፼ ፻ ፳፩
-print(convert_arabic_to_geez("20242"))  # ፪፼ ፪፻ ፵፪
+    arabic_num = geez_arabic_map.get(geez_num)
+    if not arabic_num:
+        arabic_num = geez_arabic_map[geez_num[0]] + geez_arabic_map[geez_num[1]]
+    return arabic_num
 
 
 def split_geez_num(geez_num):
-    # ፯፻ ፷፭፼ ፵፫፻ ፳፩ --> [7, 65, 43, 21] --> 7,000,000 + 650,000 + 4300 + 21
-    # ፯፻ ፷፭፼ ፳፩ --> [7, 65, 0, 21] --> 7,000,000 + 650,000 + 0 + 21
-    # ፯፻ ፷፭፼ ፻ ፳፩ --> [7, 65, 1, 21] --> 7,000,000 + 650,000 + 100 + 21
-    # ፪፼ ፪፻ ፵፪ --> [2, 2, 42] --> 20,000 + 200 + 42
-    pass
+    arabic_chunks = []
+    geez_num_len = len(geez_num)
+    slice_end_index = geez_num_len
+    for i in range(geez_num_len):
+        if geez_num[-i - 1] == "፻":
+            arabic_chunks.insert(0, geez_to_arabic_chunk(geez_num[-i:slice_end_index]))
+            slice_end_index = -i - 1
+            if len(arabic_chunks) % 2 == 0:
+                arabic_chunks.insert(0, 0)
+        elif geez_num[-i - 1] == "፼":
+            arabic_chunks.insert(0, geez_to_arabic_chunk(geez_num[-i:slice_end_index]))
+            slice_end_index = -i - 1
+            if len(arabic_chunks) % 2 == 1:
+                arabic_chunks.insert(0, 0)
+
+    slice_end_index = geez_num.index("፻" if len(arabic_chunks) % 2 == 1 else "፼")
+    arabic_chunks.insert(0, geez_to_arabic_chunk(geez_num[0:slice_end_index]))
+
+    return arabic_chunks
 
 
 def convert_geez_to_arabic(geez_num):
-    pass
+    arabic_chunks = split_geez_num(geez_num)
+    arabic_num = 0
+    for i in range(len(arabic_chunks)):
+        arabic_num += arabic_chunks[-i - 1] * pow(10, i * 2)
+
+    return arabic_num
+
+
+def convert_numeral(num, from_numeral, to_numeral):
+    # 'gz' - ge'ez
+    # 'ha' - hindu-arabic
+    if [from_numeral, to_numeral] != [
+        "gz",
+        "ha",
+    ] and [from_numeral, to_numeral] != [
+        "ha",
+        "gz",
+    ]:
+        raise ValueError("Invalid numeral systems provided")
+
+    if from_numeral == "gz":
+        return convert_geez_to_arabic(num)
+    if from_numeral == "ha":
+        return convert_arabic_to_geez(num)
+

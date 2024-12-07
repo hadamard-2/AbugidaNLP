@@ -1,5 +1,5 @@
 import unittest
-from convert_script import transliterate, transcribe
+from convert_script import transliterate
 
 
 class TestTransliteration(unittest.TestCase):
@@ -17,15 +17,15 @@ class TestTransliteration(unittest.TestCase):
             ("ትዕይንት", "t'Iynt"),
         ]
 
-    def test_transliterate(self):
-        for original, expected in self.test_cases:
-            with self.subTest(original=original, expected=expected):
-                self.assertEqual(transliterate(original), expected)
+    def test_transliterate_fwd(self):
+        for ethiopic, latin in self.test_cases:
+            with self.subTest(original=ethiopic, expected=latin):
+                self.assertEqual(transliterate(ethiopic, "fwd"), latin)
 
-    def test_transcribe(self):
-        for expected, original in self.test_cases:
-            with self.subTest(original=original, expected=expected):
-                self.assertEqual(transcribe(original), expected)
+    def test_transliterate_bwd(self):
+        for ethiopic, latin in self.test_cases:
+            with self.subTest(original=latin, expected=ethiopic):
+                self.assertEqual(transliterate(latin, "bwd"), ethiopic)
 
 
 if __name__ == "__main__":
