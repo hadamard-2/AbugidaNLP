@@ -4,8 +4,7 @@ from convert_script import ScriptConverter
 
 class TestTransliteration(unittest.TestCase):
     def setUp(self):
-        self.converter = ScriptConverter()
-        self.transliterate = self.converter.transliterate
+        self.transliterate = ScriptConverter().transliterate
 
         self.test_cases = [
             ("ኢትዮጵያ", "ityoPya"),
