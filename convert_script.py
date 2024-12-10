@@ -7,32 +7,23 @@ class ScriptConverter:
     A class for transliteration between Ethiopic and Latin scripts.
 
     Attributes:
-    ethiopic_latin_map (Dict[str, str]): Mapping from Ethiopic to Latin.
-    latin_ethiopic_map (Dict[str, str]): Mapping from Latin to Ethiopic.
+        ethiopic_latin_map (Dict[str, str]): Mapping from Ethiopic to Latin.
+        latin_ethiopic_map (Dict[str, str]): Mapping from Latin to Ethiopic.
     """
 
     def __init__(self, mapping_file: str = "SERA_table.json"):
         """
         Initialize the ScriptConverter with mappings from a JSON file.
 
-        Parameters:
-        mapping_file (str): Path to the JSON file containing transliteration mappings.
-                            Defaults to 'SERA_table.json'.
+        Args:
+            mapping_file (str): Path to the JSON file containing transliteration mappings.
+                                Defaults to 'SERA_table.json'.
         """
         self.ethiopic_latin_map = self._load_mappings(mapping_file)
         self.latin_ethiopic_map = {v: k for k, v in self.ethiopic_latin_map.items()}
 
     @staticmethod
     def _load_mappings(file_path: str) -> Dict[str, str]:
-        """
-        Load transliteration mappings from a JSON file.
-
-        Parameters:
-        file_path (str): Path to the JSON file.
-
-        Returns:
-        Dict[str, str]: The mapping from Ethiopic to Latin.
-        """
         with open(file_path, "r", encoding="utf-8") as file:
             return json.load(file)
 
@@ -40,17 +31,17 @@ class ScriptConverter:
         """
         Transliterate a word between Ethiopic and Latin scripts.
 
-        Parameters:
-        word (str): The word to be transliterated.
-        direction (str): The direction of transliteration.
-                         'fwd' - Transliterate from Ethiopic to Latin.
-                         'bwd' - Transliterate from Latin to Ethiopic.
+        Args:
+            word (str): The word to be transliterated.
+            direction (str): The direction of transliteration.
+                             'fwd' - Transliterate from Ethiopic to Latin.
+                             'bwd' - Transliterate from Latin to Ethiopic.
 
         Returns:
-        str: The transliterated word.
+            str: The transliterated word.
 
         Raises:
-        ValueError: If an invalid direction is provided or if the word contains invalid characters.
+            ValueError: If an invalid direction is provided or if the word contains invalid characters.
         """
         if not word:
             raise ValueError("Word must not be empty.")

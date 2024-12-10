@@ -1,6 +1,10 @@
 class NumeralConverter:
     """
     A class to convert numerals between Ge'ez and Hindu-Arabic systems.
+
+    Attributes:
+        geez_arabic_map (Dict[str, int]): Mapping from Ge'ez to Arabic numerals.
+        arabic_geez_map (Dict[int, str]): Mapping from Arabic to Ge'ez numerals.
     """
 
     def __init__(self):
@@ -141,4 +145,3 @@ class NumeralConverter:
                 self.geez_arabic_map[geez_num[0]] + self.geez_arabic_map[geez_num[1]]
             )
         return arabic_num
-
