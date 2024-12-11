@@ -67,14 +67,12 @@ class ScriptConverter:
         return word.isascii() and word.isalpha()
 
     def _ethiopic_to_latin(self, word: str) -> str:
-        """Transliterate a word from Ethiopic to Latin."""
         if not all(char in self.ethiopic_latin_map for char in word):
             raise ValueError("The word contains non-Ethiopic letters.")
 
         return "".join(self.ethiopic_latin_map[char] for char in word)
 
     def _latin_to_ethiopic(self, word: str) -> str:
-        """Transliterate a word from Latin to Ethiopic."""
         if not self._is_valid_latin_transliteration(word):
             raise ValueError("The Latin transliteration contains invalid characters.")
 
