@@ -1,4 +1,6 @@
 import json
+import os
+import importlib.resources as pkg_resources
 from typing import Dict
 
 
@@ -17,15 +19,37 @@ class ScriptConverter:
 
         Args:
             mapping_file (str): Path to the JSON file containing transliteration mappings.
-                                Defaults to 'SERA_table.json'.
+                                If not provided, defaults to 'SERA_table.json' bundled with the package.
+
+        Raises:
+            FileNotFoundError: If the specified file (custom or default) is not found.
+            ValueError: If the JSON file is invalid or cannot be parsed.
         """
         self.ethiopic_latin_map = self._load_mappings(mapping_file)
         self.latin_ethiopic_map = {v: k for k, v in self.ethiopic_latin_map.items()}
 
     @staticmethod
     def _load_mappings(file_path: str) -> Dict[str, str]:
-        with open(file_path, "r", encoding="utf-8") as file:
-            return json.load(file)
+        if os.path.isfile(file_path):  # Custom file path
+            try:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    return json.load(file)
+            except json.JSONDecodeError:
+                raise ValueError(
+                    f"Failed to parse the custom mapping file '{file_path}'. Ensure it contains valid JSON."
+                )
+        else:  # Fallback to default file in the package
+            try:
+                with pkg_resources.open_text("abugida", file_path) as file:
+                    return json.load(file)
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    f"Mapping file '{file_path}' not found. If using a default file, ensure it is bundled with the package."
+                )
+            except json.JSONDecodeError:
+                raise ValueError(
+                    f"Failed to parse the default mapping file '{file_path}'. Ensure it contains valid JSON."
+                )
 
     def transliterate(self, word: str, direction: str) -> str:
         """

@@ -1,5 +1,5 @@
 import unittest
-from convert_calendar import CalendarConverter
+from abugida import CalendarConverter
 
 
 class TestConvertCalendar(unittest.TestCase):

@@ -1,5 +1,5 @@
 import unittest
-from convert_numeral import NumeralConverter
+from abugida import NumeralConverter
 
 
 class TestConvertNumeral(unittest.TestCase):
@@ -24,6 +24,7 @@ class TestConvertNumeral(unittest.TestCase):
             with self.subTest(ha_num=ha_num):
                 result = self.convert(ha_num, "ha", "gz")
                 self.assertEqual(result, gz_num)
+
 
 if __name__ == "__main__":
     unittest.main()

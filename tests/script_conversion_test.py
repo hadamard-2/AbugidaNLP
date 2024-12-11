@@ -1,5 +1,5 @@
 import unittest
-from convert_script import ScriptConverter
+from abugida import ScriptConverter
 
 
 class TestTransliteration(unittest.TestCase):
