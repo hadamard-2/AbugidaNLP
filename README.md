@@ -1,3 +1,5 @@
+
+
 # AbugidaNLP
 Natural Language Processing tools and resources for Ethiopian languages.
 
@@ -19,7 +21,7 @@ AbugidaNLP is currently in its infancy, offering:
 ## Installation
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip
 
 ### Installation
@@ -85,4 +87,3 @@ Special thanks to the following resources for their inspiration and insights:
 
 ## Contact
 For questions or support, please open an issue.
-
