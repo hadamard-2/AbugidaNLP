@@ -5,12 +5,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="abugida",
-    version="0.3.4",
+    version="0.4.0",
     packages=find_packages(),
     package_data={
         "abugida": ["SERA_table.json"],
     },
     install_requires=[],
+    python_requires=">=3.10",
     description="NLP tools and resources for Ethiopian languages",
     long_description=long_description,
     long_description_content_type="text/markdown",
