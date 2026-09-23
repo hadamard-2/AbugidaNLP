@@ -1,6 +1,15 @@
+import re
+
+
 class NumeralConverter:
     """
     A class to convert numerals between Ge'ez and Hindu-Arabic systems.
+
+    Ge'ez numerals are written following CLDR's "%ethiopic" rule set (as used by ICU). A number
+    is built from groups below 10,000 written with ፻, each followed by a run of ፼ marks. A run of
+    k ፼ multiplies everything written since the previous run of more than k ፼, so 10^8 is ፼፼,
+    123,456,789 is ፼፳፫፻፵፭፼፷፯፻፹፱ and 100,010,000 is ፼፩፼. A leading ፩ before ፻ or ፼ is
+    omitted when formatting but accepted when parsing.
 
     Attributes:
         geez_arabic_map (Dict[str, int]): Mapping from Ge'ez to Arabic numerals.
@@ -64,13 +73,7 @@ class NumeralConverter:
         if arabic_num <= 0:
             raise ValueError("Ge'ez numerals do not support non-positive numbers.")
 
-        arabic_segments = self._split_arabic_num(arabic_num)
-        geez_num = ""
-        for i in range(len(arabic_segments)):
-            geez_num += self._arabic_to_geez_segment(
-                arabic_segments[i], len(arabic_segments) - 1 - i
-            )
-        return geez_num
+        return self._format_geez(arabic_num)
 
     def _convert_geez_to_arabic(self, geez_num: str):
         if not isinstance(geez_num, str):
@@ -80,68 +83,73 @@ class NumeralConverter:
         if not all(char in self.geez_arabic_map for char in geez_num):
             raise ValueError("Input contains invalid Ge'ez numeral characters.")
 
-        arabic_segments = self._split_geez_num(geez_num)
-        arabic_num = 0
-        for i in range(len(arabic_segments)):
-            arabic_num += arabic_segments[-i - 1] * pow(10, i * 2)
+        arabic_num = self._parse_geez(geez_num)
+        if self._strip_implicit_ones(geez_num) != self._strip_implicit_ones(
+            self._format_geez(arabic_num)
+        ):
+            raise ValueError("Input is not a well-formed Ge'ez numeral.")
         return arabic_num
 
-    def _split_arabic_num(self, arabic_num: int):
-        arabic_num = str(arabic_num)
-        segment_length = 2
-        if len(arabic_num) % 2 == 1:
-            arabic_num = "0" + arabic_num
-        return [
-            arabic_num[i : i + segment_length]
-            for i in range(0, len(arabic_num), segment_length)
-        ]
+    def _format_geez(self, num: int, explicit_one: bool = False):
+        if num < 10000:
+            return self._format_geez_below_10000(num)
+        level = 1
+        while num >= 10000 ** (level + 1):
+            level += 1
+        head, rest = divmod(num, 10000**level)
+        head_geez = "" if head == 1 and not explicit_one else self._format_geez(head)
+        return head_geez + "፼" + self._format_geez_tail(rest, level - 1)
 
-    def _arabic_to_geez_segment(self, arabic_segment: str, segment_index: int):
-        if int(arabic_segment) == 0:
-            return ""
-        geez_segment = self.arabic_geez_map.get(int(arabic_segment))
-        if not geez_segment:
-            geez_segment = (
-                self.arabic_geez_map[int(arabic_segment[0]) * 10]
-                + self.arabic_geez_map[int(arabic_segment[1])]
-            )
-        if segment_index % 2 == 1:
-            geez_segment = "፻" if geez_segment == "፩" else geez_segment + "፻"
-        elif segment_index != 0:
-            geez_segment = "፼" if geez_segment == "፩" else geez_segment + "፼"
-        return geez_segment
+    def _format_geez_tail(self, num: int, level: int):
+        # Formats the part of a number below 10000^(level + 1) that follows a ፼
+        if level == 0:
+            return self._format_geez(num) if num else ""
+        if num < 10000**level:
+            return "፼" * level + (self._format_geez(num, explicit_one=True) if num else "")
+        head, rest = divmod(num, 10000**level)
+        return self._format_geez(head) + "፼" + self._format_geez_tail(rest, level - 1)
 
-    def _split_geez_num(self, geez_num: str):
-        arabic_segments = []
-        geez_num_len = len(geez_num)
-        slice_end_index = geez_num_len
-        for i in range(geez_num_len):
-            if geez_num[-i - 1] == "፻":
-                arabic_segments.insert(
-                    0, self._geez_to_arabic_segment(geez_num[-i:slice_end_index])
-                )
-                slice_end_index = -i - 1
-                if len(arabic_segments) % 2 == 0:
-                    arabic_segments.insert(0, 0)
-            elif geez_num[-i - 1] == "፼":
-                arabic_segments.insert(
-                    0, self._geez_to_arabic_segment(geez_num[-i:slice_end_index])
-                )
-                slice_end_index = -i - 1
-                if len(arabic_segments) % 2 == 1:
-                    arabic_segments.insert(0, 0)
-        slice_end_index = geez_num.index("፻" if len(arabic_segments) % 2 == 1 else "፼")
-        arabic_segments.insert(
-            0, self._geez_to_arabic_segment(geez_num[0:slice_end_index])
+    def _format_geez_below_10000(self, num: int):
+        hundreds, rest = divmod(num, 100)
+        geez_num = ""
+        if hundreds:
+            geez_num += ("" if hundreds == 1 else self._format_geez_below_100(hundreds)) + "፻"
+        if rest:
+            geez_num += self._format_geez_below_100(rest)
+        return geez_num
+
+    def _format_geez_below_100(self, num: int):
+        tens, units = divmod(num, 10)
+        return (self.arabic_geez_map[tens * 10] if tens else "") + (
+            self.arabic_geez_map[units] if units else ""
         )
-        return arabic_segments
 
-    def _geez_to_arabic_segment(self, geez_num: str):
-        if len(geez_num) == 0:
-            return 1
-        arabic_num = self.geez_arabic_map.get(geez_num)
-        if not arabic_num:
-            arabic_num = (
-                self.geez_arabic_map[geez_num[0]] + self.geez_arabic_map[geez_num[1]]
-            )
-        return arabic_num
+    def _parse_geez(self, geez_num: str):
+        segments = []  # (፼ run length, value); run lengths strictly decrease
+        group = 0  # value of the group below 10,000 being read
+        coefficient = 0  # value of the digits read since the last ፻ or ፼
+        i = 0
+        while i < len(geez_num):
+            char = geez_num[i]
+            if char == "፻":
+                group += (coefficient or 1) * 100
+                coefficient = 0
+                i += 1
+            elif char == "፼":
+                run = 0
+                while i < len(geez_num) and geez_num[i] == "፼":
+                    run += 1
+                    i += 1
+                value = group + coefficient or 1
+                group = coefficient = 0
+                while segments and segments[-1][0] <= run:
+                    value += segments.pop()[1]
+                segments.append((run, value * 10000**run))
+            else:
+                coefficient += self.geez_arabic_map[char]
+                i += 1
+        return sum(value for _, value in segments) + group + coefficient
+
+    def _strip_implicit_ones(self, geez_num: str):
+        # Drops a ፩ that stands alone before ፻ or ፼ (not the units digit of ፲፩ through ፺፩)
+        return re.sub("(?<![፲-፺])፩(?=[፻፼])", "", geez_num)
