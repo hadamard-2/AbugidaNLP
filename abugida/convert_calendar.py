@@ -4,14 +4,20 @@ from datetime import date, datetime
 class CalendarConverter:
     """
     A class to handle calendar conversion between Ethiopian Calendar (EC) and Gregorian Calendar (GC).
-    
+
+    Both calendars are converted through the Julian Day Number (JDN), using the Beyene-Kudlek
+    algorithm for the Ethiopian side (B. Beyene and M. Kudlek, "Calendars in Ethiopia",
+    International Conference of Ethiopian Studies XV).
+
     Attributes:
-        EC_GC_DAY_DIFFERENCE (int): The constant difference in days between the Ethiopian Calendar
-            and the Gregorian Calendar. Specifically, the Ethiopian calendar lags 2430 days behind 
-            the Gregorian calendar.
+        JD_EPOCH_OFFSET_AMETE_MIHRET (int): Beyene-Kudlek JDN offset for the Amete Mihret era;
+            Meskerem 1 of year 1 falls 365 days after it, on JDN 1724221.
+        JDN_ORDINAL_OFFSET (int): Difference between a JDN and Python's proleptic Gregorian
+            ordinal (0001-01-01 is ordinal 1 and JDN 1721426).
     """
 
-    EC_GC_DAY_DIFFERENCE = 2430
+    JD_EPOCH_OFFSET_AMETE_MIHRET = 1723856
+    JDN_ORDINAL_OFFSET = 1721425
 
     def convert(self, date_str: str, from_calendar: str, to_calendar: str) -> str:
         """
@@ -39,17 +45,8 @@ class CalendarConverter:
         if [from_calendar, to_calendar] not in [["EC", "GC"], ["GC", "EC"]]:
             raise ValueError("Unsupported calendar conversion")
 
-        day_count = self._get_absolute_day_count(date_str, from_calendar)
-
-        if from_calendar == "EC":
-            day_count += self.EC_GC_DAY_DIFFERENCE
-        else:
-            day_count -= self.EC_GC_DAY_DIFFERENCE
-
-        if day_count < 1:
-            raise ValueError("Invalid date for the target calendar system")
-
-        return self._absolute_day_count_to_date(day_count, to_calendar)
+        jdn = self._date_to_jdn(date_str, from_calendar)
+        return self._jdn_to_date(jdn, to_calendar)
 
     def _is_date_valid(self, date_str: str, calendar_system: str) -> bool:
         if calendar_system == "EC":
@@ -69,49 +66,44 @@ class CalendarConverter:
         else:
             raise ValueError("Invalid calendar system")
 
-    def _get_absolute_day_count(self, date_str: str, calendar_system: str) -> int:
+    def _date_to_jdn(self, date_str: str, calendar_system: str) -> int:
         if calendar_system == "EC":
             year, month, day = map(int, date_str.split("-"))
-            if self._is_date_valid(date_str, calendar_system):
-                return (
-                    (year * 365 + self._count_leap_years(year, calendar_system))
-                    + ((month - 1) * 30)
-                    + day
-                )
-            raise ValueError("Invalid date in the Ethiopian Calendar")
+            return (
+                (self.JD_EPOCH_OFFSET_AMETE_MIHRET + 365)
+                + 365 * (year - 1)
+                + year // 4
+                + 30 * month
+                + day
+                - 31
+            )
         elif calendar_system == "GC":
-            return date.fromisoformat(date_str).toordinal()
+            return date.fromisoformat(date_str).toordinal() + self.JDN_ORDINAL_OFFSET
         else:
             raise ValueError("Invalid calendar system")
 
-    def _absolute_day_count_to_date(self, day_count: int, calendar_system: str) -> str:
+    def _jdn_to_date(self, jdn: int, calendar_system: str) -> str:
         if calendar_system == "EC":
-            day_count -= day_count // 1460
-
-            year = day_count // 365
-            day_count -= year * 365
-            month = day_count // 30
-            day_count -= month * 30
-            day = day_count
-
-            month += 1
+            days = jdn - self.JD_EPOCH_OFFSET_AMETE_MIHRET
+            r = days % 1461
+            n = r % 365 + 365 * (r // 1460)
+            year = 4 * (days // 1461) + r // 365 - r // 1460
+            month = n // 30 + 1
+            day = n % 30 + 1
+            if year < 1:
+                raise ValueError("Invalid date for the target calendar system")
             return f"{year:04d}-{month:02d}-{day:02d}"
         elif calendar_system == "GC":
-            return date.fromordinal(day_count).isoformat()
-        else:
-            raise ValueError("Invalid calendar system")
-
-    def _count_leap_years(self, year: int, calendar_system: str) -> int:
-        if calendar_system == "EC":
-            return year // 4
-        elif calendar_system == "GC":
-            return (year // 4) - (year // 100) + (year // 400)
+            ordinal = jdn - self.JDN_ORDINAL_OFFSET
+            if ordinal < 1:
+                raise ValueError("Invalid date for the target calendar system")
+            return date.fromordinal(ordinal).isoformat()
         else:
             raise ValueError("Invalid calendar system")
 
     def _is_leap_year(self, year: int, calendar_system: str) -> bool:
         if calendar_system == "EC":
-            return year % 4 == 0
+            return year % 4 == 3
         elif calendar_system == "GC":
             return (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
         else:
