@@ -23,10 +23,22 @@ class ScriptConverter:
 
         Raises:
             FileNotFoundError: If the specified file (custom or default) is not found.
-            ValueError: If the JSON file is invalid or cannot be parsed.
+            ValueError: If the JSON file is invalid or cannot be parsed, or if
+                        two letters share the same Latin code.
         """
         self.ethiopic_latin_map = self._load_mappings(mapping_file)
-        self.latin_ethiopic_map = {v: k for k, v in self.ethiopic_latin_map.items()}
+        self.latin_ethiopic_map = self._invert_mappings(self.ethiopic_latin_map)
+
+    @staticmethod
+    def _invert_mappings(mappings: Dict[str, str]) -> Dict[str, str]:
+        inverted = {}
+        for fidel, latin in mappings.items():
+            if latin in inverted:
+                raise ValueError(
+                    f"Latin code '{latin}' is assigned to both '{inverted[latin]}' and '{fidel}'."
+                )
+            inverted[latin] = fidel
+        return inverted
 
     @staticmethod
     def _load_mappings(file_path: str) -> Dict[str, str]:
