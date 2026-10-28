@@ -86,7 +86,8 @@ class TestTigrinyaToNumber(unittest.TestCase):
         return self.converter.to_number(text, "ti", to)
 
     def test_round_trip(self):
-        numbers = list(range(0, 10001)) + [random.Random(0).randrange(10**12) for _ in range(300)]
+        rng = random.Random(0)
+        numbers = list(range(0, 10001)) + [rng.randrange(10**12) for _ in range(300)]
         for n in numbers:
             words = self.converter.to_words(n, "ti")
             self.assertEqual(self.parse(words), n, words)
