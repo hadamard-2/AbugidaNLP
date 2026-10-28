@@ -15,8 +15,10 @@ def cardinal(n: int) -> str:
     """
     Write a whole number as Afaan Oromoo words, scale word first, with an explicit "tokko".
 
-    Each scale group is the scale word and its multiplier ("kuma lama"). Tens and units are one
-    component ("digdamii shan"). "fi" goes only before the last component.
+    Each scale group is the scale word and its multiplier ("kuma lama"). A group of 100 or more
+    that is not exact hundreds repeats the scale word for its hundreds and for the rest
+    ("kuma dhibba tokko fi kuma digdamii shan" is 125 000). Tens and units are one component
+    ("digdamii shan"), and "fi" goes between every two components.
 
     Args:
         n (int): The number to write, 0 <= n < 10**12.
@@ -37,7 +39,11 @@ def cardinal(n: int) -> str:
     pending_tens = 0
     for value, scale in components(n):
         if scale > 1:
-            parts.append(f"{table['scales'][scale]} {cardinal(value)}")
+            scale_word = table["scales"][scale]
+            rest = value % 100 if value > 100 else 0
+            for piece in (value - rest, rest):
+                if piece:
+                    parts.append(f"{scale_word} {cardinal(piece)}")
         elif value >= 20 and value % 10 == 0:
             # A tens word waits to see if a units word follows it
             pending_tens = value
@@ -50,9 +56,7 @@ def cardinal(n: int) -> str:
             parts.append(f"{table['teens_prefix']} {table['digits'][value - 10]}")
     if pending_tens:
         parts.append(table["tens"][pending_tens])
-    if len(parts) > 1:
-        parts[-1] = f"{table['conjunction']} {parts[-1]}"
-    return " ".join(parts)
+    return f" {table['conjunction']} ".join(parts)
 
 
 def ordinal(n: int, gender: str = "m") -> str:

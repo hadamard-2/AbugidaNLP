@@ -142,7 +142,8 @@ def _below_1000(reader: _Reader, after_join: bool, multiplier: bool = False) -> 
     hundreds = 0
     if reader.take("scale", 100, 100, after_join) is not None:
         hundreds = 100 * (reader.take("num", 1, 9) or 1)
-    return hundreds + _below_100(reader, after_join or hundreds > 0, multiplier)
+    # A multiplier ends after its hundreds at a "join": "kuma dhibba tokko fi shan" is 100 005
+    return hundreds + _below_100(reader, after_join or (hundreds > 0 and not multiplier), multiplier)
 
 
 def fold_head_first(items: list[Item]) -> int:
@@ -152,7 +153,7 @@ def fold_head_first(items: list[Item]) -> int:
     The grammar, read left to right and greedily ("join" is the word "and", DIGIT is 1 to 9 and
     TENS is 10, 20, ... 90)::
 
-        number     := zero | group* [below_1000]           group scales strictly decrease
+        number     := zero | group* [below_1000]           group scales decrease, or repeat after a join
         group      := SCALE>=1000 [below_1000]             no multiplier means 1
         below_1000 := [100 [DIGIT]] [join] [below_100]     no DIGIT means 1
         below_100  := NUM | TENS [join] DIGIT              no join inside a multiplier
@@ -162,7 +163,7 @@ def fold_head_first(items: list[Item]) -> int:
     A "join" right after a scale word ends the multiplier before it starts, so the multiplier
     is 1: "kuma fi dhibba shan" is 1500 and "dhibba fi shan" is 105. Inside a multiplier a
     tens word takes its units only directly, so "kuma digdama fi tokko" is 20 001 (21 000 is
-    "kuma digdamii tokko"), while "fi" after the hundreds stays part of the multiplier.
+    "kuma digdamii tokko"), while a multiplier ends at a "join" after its hundreds, so "kuma dhibba tokko fi shan" is 100 005 and "kuma dhibba tokko fi kuma shan" is 105 000.
 
     Args:
         items (List[Item]): Items of kind "num", "scale" or "join".
@@ -183,6 +184,8 @@ def fold_head_first(items: list[Item]) -> int:
     while not reader.done():
         after_join = last_scale is not None
         upper = last_scale - 1 if last_scale else float("inf")
+        if last_scale and reader.items[reader.pos][0] == "join":
+            upper = last_scale  # a scale may repeat after "fi": "kuma dhibba tokko fi kuma shan"
         scale = reader.take("scale", 1000, upper, after_join)
         if scale is None:
             total += _below_1000(reader, after_join)

@@ -14,9 +14,14 @@ class TestOromoToWords(unittest.TestCase):
         (101, "dhibba tokko fi tokko"), (125, "dhibba tokko fi digdamii shan"), (1000, "kuma tokko"),
         (1500, "kuma tokko fi dhibba shan"), (2015, "kuma lama fi kudha shan"),
         (2026, "kuma lama fi digdamii ja'a"), (5000, "kuma shan"),
-        (5327, "kuma shan dhibba sadii fi digdamii torba"), (10**6, "miiliyoona tokko"),
-        (125_000, "kuma dhibba tokko fi digdamii shan"),
-        (1125, "kuma tokko dhibba tokko fi digdamii shan"),
+        (5327, "kuma shan fi dhibba sadii fi digdamii torba"), (10**6, "miiliyoona tokko"),
+        (125_000, "kuma dhibba tokko fi kuma digdamii shan"), (100_025, "kuma dhibba tokko fi digdamii shan"),
+        (946_000, "kuma dhibba sagal fi kuma afurtamii ja'a"), (900_046, "kuma dhibba sagal fi afurtamii ja'a"),
+        (1125, "kuma tokko fi dhibba tokko fi digdamii shan"),
+        (730_507_300_070, "biiliyoona dhibba torba fi biiliyoona soddoma fi miiliyoona dhibba shan fi miiliyoona torba"
+                          " fi kuma dhibba sadii fi torbaatama"),
+        (730_507_370_000, "biiliyoona dhibba torba fi biiliyoona soddoma fi miiliyoona dhibba shan fi miiliyoona torba"
+                          " fi kuma dhibba sadii fi kuma torbaatama"),
     ]
 
     def setUp(self):
@@ -63,7 +68,7 @@ class TestOromoToWords(unittest.TestCase):
             self.converter.to_words(2.5, "om", to="currency", currency="EUR")
 
     def test_bounds(self):
-        self.assertTrue(self.converter.to_words(10**12 - 1, "om").startswith("biiliyoona dhibba sagal fi sagaltamii sagal miiliyoona"))
+        self.assertTrue(self.converter.to_words(10**12 - 1, "om").startswith("biiliyoona dhibba sagal fi biiliyoona sagaltamii sagal fi miiliyoona"))
         with self.assertRaises(OverflowError):
             self.converter.to_words(10**12, "om")
         self.assertEqual(oromo.MAXVAL, 10**12)
@@ -130,16 +135,19 @@ class TestOromoToNumber(unittest.TestCase):
         self.assertEqual(self.parse("kuma digdama fi tokko"), 20_001)
         self.assertEqual(self.parse("kuma digdamii tokko"), 21_000)
         self.assertEqual(self.parse("kuma digdama tokko"), 21_000)
-        self.assertEqual(self.parse("kuma dhibba tokko fi digdamii shan"), 125_000)
+        self.assertEqual(self.parse("kuma dhibba tokko fi digdamii shan"), 100_025)
         self.assertEqual(self.parse("digdama fi tokko"), 21)
 
-    def test_colliding_default_forms_read_greedily(self):
-        # A scale group of exact hundreds followed by a part below 100 is written the same as a
-        # larger multiplier: 900 046 and 946 000 are both "kuma dhibba sagal fi afurtamii ja'a"
-        self.assertEqual(self.converter.to_words(900_046, "om"), self.converter.to_words(946_000, "om"))
-        self.assertEqual(self.parse("kuma dhibba sagal fi afurtamii ja'a"), 946_000)
-        self.assertEqual(self.converter.to_words(100_025, "om"), self.converter.to_words(125_000, "om"))
-        self.assertEqual(self.parse(self.converter.to_words(100_025, "om")), 125_000)
+    def test_scale_word_is_repeated_for_hundreds_and_the_rest(self):
+        # 900 046 and 946 000, 100 025 and 125 000 are told apart by the repeated scale word
+        pairs = [(900_046, 946_000), (100_025, 125_000), (730_507_300_070, 730_507_370_000)]
+        for first, second in pairs:
+            with self.subTest(first=first):
+                words = [self.converter.to_words(n, "om") for n in (first, second)]
+                self.assertNotEqual(*words)
+                self.assertEqual([self.parse(w) for w in words], [first, second])
+        # Without the repeated scale word the multiplier is read as one phrase
+        self.assertEqual(self.parse("kuma dhibba tokko digdamii shan"), 125_000)
 
     def test_reversed_order_fallback(self):
         self.assertEqual(self.parse("lama kuma"), 2000)
