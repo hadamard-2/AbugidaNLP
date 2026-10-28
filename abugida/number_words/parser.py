@@ -127,22 +127,22 @@ class _Reader:
         return int(value)
 
 
-def _below_100(reader: _Reader, after_join: bool) -> int:
-    """Read NUM, or TENS [join] DIGIT. Return 0 when nothing is read."""
+def _below_100(reader: _Reader, after_join: bool, multiplier: bool) -> int:
+    """Read NUM, or TENS [join] DIGIT (no join in a multiplier). Return 0 when nothing is read."""
     value = reader.take("num", 1, 99, after_join)
     if value is None:
         return 0
     if value % 10 == 0:
-        value += reader.take("num", 1, 9, after_join=True) or 0
+        value += reader.take("num", 1, 9, after_join=not multiplier) or 0
     return value
 
 
-def _below_1000(reader: _Reader, after_join: bool) -> int:
+def _below_1000(reader: _Reader, after_join: bool, multiplier: bool = False) -> int:
     """Read ["dhibba" [DIGIT]] [join] [below_100]. Return 0 when nothing is read."""
     hundreds = 0
     if reader.take("scale", 100, 100, after_join) is not None:
         hundreds = 100 * (reader.take("num", 1, 9) or 1)
-    return hundreds + _below_100(reader, after_join=after_join or hundreds > 0)
+    return hundreds + _below_100(reader, after_join or hundreds > 0, multiplier)
 
 
 def fold_head_first(items: list[Item]) -> int:
@@ -155,12 +155,14 @@ def fold_head_first(items: list[Item]) -> int:
         number     := zero | group* [below_1000]           group scales strictly decrease
         group      := SCALE>=1000 [below_1000]             no multiplier means 1
         below_1000 := [100 [DIGIT]] [join] [below_100]     no DIGIT means 1
-        below_100  := NUM | TENS [join] DIGIT
+        below_100  := NUM | TENS [join] DIGIT              no join inside a multiplier
 
     One "join" may also come before every group but the first, and before the final part. A
     multiplier is the longest phrase that follows its scale, so "kuma dhibba shan" is 500 000.
     A "join" right after a scale word ends the multiplier before it starts, so the multiplier
-    is 1: "kuma fi dhibba shan" is 1500 and "dhibba fi shan" is 105.
+    is 1: "kuma fi dhibba shan" is 1500 and "dhibba fi shan" is 105. Inside a multiplier a
+    tens word takes its units only directly, so "kuma digdama fi tokko" is 20 001 (21 000 is
+    "kuma digdamii tokko"), while "fi" after the hundreds stays part of the multiplier.
 
     Args:
         items (List[Item]): Items of kind "num", "scale" or "join".
@@ -185,7 +187,7 @@ def fold_head_first(items: list[Item]) -> int:
         if scale is None:
             total += _below_1000(reader, after_join)
             break
-        total += scale * (_below_1000(reader, after_join=False) or 1)
+        total += scale * (_below_1000(reader, after_join=False, multiplier=True) or 1)
         last_scale = scale
     if not reader.done():
         raise ValueError("Not a head-first number phrase")

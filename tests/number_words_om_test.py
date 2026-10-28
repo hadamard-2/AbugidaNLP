@@ -82,7 +82,7 @@ class TestOromoToNumber(unittest.TestCase):
 
     def test_round_trip(self):
         rng = random.Random(0)
-        numbers = list(range(0, 10001)) + [rng.randrange(10**12) for _ in range(300)]
+        numbers = list(range(0, 20001)) + [rng.randrange(10**12) for _ in range(300)]
         for n in numbers:
             words = self.converter.to_words(n, "om")
             self.assertEqual(self.parse(words), n, words)
@@ -121,14 +121,25 @@ class TestOromoToNumber(unittest.TestCase):
         self.assertEqual(self.parse("kuma dhibba shan"), 500_000)
         self.assertEqual(self.converter.to_words(500_000, "om"), "kuma dhibba shan")
 
-    def test_ambiguous_default_forms_read_greedily(self):
-        # 20 001 is written "kuma digdama fi tokko", which also reads as 21 000; greedy wins
-        self.assertEqual(self.converter.to_words(20_001, "om"), "kuma digdama fi tokko")
-        self.assertEqual(self.parse("kuma digdama fi tokko"), 21_000)
+    def test_tens_and_digit_after_fi_are_not_a_multiplier(self):
+        # A multiplier never splits its tens and units with "fi": 21 000 is "kuma digdamii tokko",
+        # so "kuma digdama fi tokko" is 20 001 and "kuma kudhan fi tokko" is 10 001
+        for n in (*range(10_001, 10_010), 20_001, 30_005, 10_000_001, 820_006, 220_001):
+            with self.subTest(n=n):
+                self.assertEqual(self.parse(self.converter.to_words(n, "om")), n)
+        self.assertEqual(self.parse("kuma digdama fi tokko"), 20_001)
+        self.assertEqual(self.parse("kuma digdamii tokko"), 21_000)
+        self.assertEqual(self.parse("kuma digdama tokko"), 21_000)
+        self.assertEqual(self.parse("kuma dhibba tokko fi digdamii shan"), 125_000)
+        self.assertEqual(self.parse("digdama fi tokko"), 21)
+
+    def test_colliding_default_forms_read_greedily(self):
         # A scale group of exact hundreds followed by a part below 100 is written the same as a
         # larger multiplier: 900 046 and 946 000 are both "kuma dhibba sagal fi afurtamii ja'a"
         self.assertEqual(self.converter.to_words(900_046, "om"), self.converter.to_words(946_000, "om"))
         self.assertEqual(self.parse("kuma dhibba sagal fi afurtamii ja'a"), 946_000)
+        self.assertEqual(self.converter.to_words(100_025, "om"), self.converter.to_words(125_000, "om"))
+        self.assertEqual(self.parse(self.converter.to_words(100_025, "om")), 125_000)
 
     def test_reversed_order_fallback(self):
         self.assertEqual(self.parse("lama kuma"), 2000)
@@ -168,6 +179,11 @@ class TestOromoToNumber(unittest.TestCase):
                      "kuma kuma", "kudha kudha", "dhibba dhibba", "zeeroo kuma", "kuma zeeroo"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 self.parse(text)
+
+    def test_missing_amount_has_a_clear_error(self):
+        for text, to in (("tuqaa shan", "cardinal"), ("seentii", "currency")):
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, "No number words"):
+                self.parse(text, to)
 
     def test_overflow(self):
         with self.assertRaises(OverflowError):

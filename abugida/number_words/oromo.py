@@ -248,6 +248,8 @@ def fold(items: list[Item], year: bool = False) -> int:
     Raises:
         ValueError: If no reading fits.
     """
+    if not items:
+        raise ValueError("No number words to fold")
     try:
         return parser.fold_head_first(items)
     except ValueError:
@@ -263,7 +265,7 @@ def fold(items: list[Item], year: bool = False) -> int:
 def _reversed_order(items: list[Item]) -> int:
     """Read the multiplier-first order ("lama kuma"), with single joins only between words."""
     kinds = [kind for kind, _ in items]
-    if not items or "join" in (kinds[0], kinds[-1]) or any(a == b == "join" for a, b in zip(kinds, kinds[1:])):
+    if "join" in (kinds[0], kinds[-1]) or any(a == b == "join" for a, b in zip(kinds, kinds[1:])):
         raise ValueError("A conjunction must stand alone between two number words")
     if len(items) > 1 and ("num", 0) in items:
         raise ValueError("Zero cannot be part of a larger number")
