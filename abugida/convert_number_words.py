@@ -61,7 +61,7 @@ class NumberWordConverter:
 
         Args:
             value (int|float|Decimal|str): The value. An integral value has no fraction digits,
-                so "2.0" splits like 2. Trailing zeros of the fraction are dropped.
+                so "2.0" splits like 2. Any other fraction keeps all its digits, trailing zeros included.
 
         Returns:
             Tuple[bool, int, str]: (negative, integer part, fraction digits or "").
@@ -73,7 +73,8 @@ class NumberWordConverter:
         number = cls._to_decimal(value)
         text = format(abs(number), "f")
         whole, _, fraction = text.partition(".")
-        fraction = fraction.rstrip("0")
+        if not fraction.strip("0"):
+            fraction = ""
         integer = int(whole)
         return number < 0 and (integer > 0 or bool(fraction)), integer, fraction
 
@@ -143,6 +144,22 @@ class NumberWordConverter:
         return " ".join(words)
 
     def _currency_words(self, number: Decimal, module, code: str | None, maxval: int) -> str:
+        """
+        Write a money amount, rounded to two places half up, in a language's words.
+
+        Args:
+            number (Decimal): The amount.
+            module: The language module, with NEGATIVE and currency().
+            code (str|None): The currency code.
+            maxval (int): The exclusive upper limit of the whole part.
+
+        Returns:
+            str: The amount in words.
+
+        Raises:
+            ValueError: If the currency code is not supported.
+            OverflowError: If the rounded whole part is at or above maxval.
+        """
         negative = number < 0
         rounded = abs(number).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         whole, cents = divmod(int(rounded * 100), 100)

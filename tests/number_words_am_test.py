@@ -71,7 +71,9 @@ class TestAmharicFormats(unittest.TestCase):
         cases = [
             (-2.5, "ኔጌቲቭ ሁለት ነጥብ አምስት"), (Decimal("3.05"), "ሦስት ነጥብ ዜሮ አምስት"),
             ("2.0", "ሁለት"), (-7, "ኔጌቲቭ ሰባት"), (2.0, "ሁለት"), ("-0.5", "ኔጌቲቭ ዜሮ ነጥብ አምስት"),
-            (Decimal("1E+2"), "አንድ መቶ"),
+            (Decimal("1E+2"), "አንድ መቶ"), (Decimal("3.50"), "ሦስት ነጥብ አምስት ዜሮ"),
+            ("2.10", "ሁለት ነጥብ አንድ ዜሮ"), (Decimal("3.500"), "ሦስት ነጥብ አምስት ዜሮ ዜሮ"),
+            (2.10, "ሁለት ነጥብ አንድ"), (0.05, "ዜሮ ነጥብ ዜሮ አምስት"),
         ]
         for value, words in cases:
             with self.subTest(value=value):
@@ -125,7 +127,9 @@ class TestAmharicFormats(unittest.TestCase):
     def test_split_decimal(self):
         split = NumberWordConverter._split_decimal
         self.assertEqual(split(-2.5), (True, 2, "5"))
-        self.assertEqual(split("3.050"), (False, 3, "05"))
+        self.assertEqual(split("3.050"), (False, 3, "050"))
+        self.assertEqual(split(Decimal("3.500")), (False, 3, "500"))
+        self.assertEqual(split(2.10), (False, 2, "1"))
         self.assertEqual(split(7), (False, 7, ""))
         self.assertEqual(split("2.0"), (False, 2, ""))
 
