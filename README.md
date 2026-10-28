@@ -13,6 +13,7 @@ AbugidaNLP is currently in its infancy, offering:
 - **Transliteration**: Convert text between Ethiopic and Latin scripts.
 - **Calendar System Conversion**: Seamlessly convert dates between Ethiopic and Gregorian calendars.
 - **Numeral System Conversion**: Translate numbers between Ge'ez and Hindu-Arabic numeral systems.
+- **Number Words**: Convert numbers to words and words back to numbers in Amharic, Tigrinya and Afaan Oromoo, including ordinals, years and currency.
 - **Text Normalization**: Merge similar-sounding Ethiopic letters in Amharic and Tigrinya text so that variant spellings of a word match.
 
 ---
@@ -92,6 +93,38 @@ print(converter.convert("፯፻፷፭፼፵፫፻፳፩", "gz", "ha"))  # Output
 ```
 
 Ge'ez numerals follow the CLDR `%ethiopic` rule set, so output matches ICU. When parsing, an explicit `፩` before `፻` or `፼` (as in `፩፻`) is accepted, and malformed numerals such as `፻፻` raise a `ValueError`.
+
+### Number Words
+
+```python
+from abugida import NumberWordConverter
+
+converter = NumberWordConverter()
+
+# Number to words: Amharic ("am"), Tigrinya ("ti") and Afaan Oromoo ("om")
+print(converter.to_words(1500, "am"))                                  # Output: አንድ ሺህ አምስት መቶ
+print(converter.to_words(-2.5, "am"))                                  # Output: ኔጌቲቭ ሁለት ነጥብ አምስት
+print(converter.to_words(3, "am", to="ordinal"))                       # Output: ሦስተኛ
+print(converter.to_words(3, "am", to="ordinal_num"))                   # Output: 3ኛ
+print(converter.to_words(2015, "am", to="year"))                       # Output: ሁለት ሺህ አሥራ አምስት
+print(converter.to_words(12.5, "am", to="currency", currency="ETB"))   # Output: አሥራ ሁለት ብር ከ ሃምሳ ሳንቲም
+print(converter.to_words(3, "ti", to="ordinal", gender="f"))           # Output: ሳልሰይቲ
+print(converter.to_words(1500, "om"))                                  # Output: kuma tokko fi dhibba shan
+
+# Words to number
+print(converter.to_number("ሺ አምስት መቶ", "am"))                        # Output: 1500
+print(converter.to_number("ሦስተኛ", "am", to="ordinal"))                # Output: 3
+print(converter.to_number("አሥራ ሁለት ብር ከ ሃምሳ ሳንቲም", "am", to="currency"))  # Output: (Decimal('12.50'), 'ETB')
+```
+
+`to_words` writes one default form per number, and `to_number` accepts the spoken variants of it ("ሺ" as well as "አንድ ሺህ"). `to=` is one of `cardinal` (the default), `ordinal`, `ordinal_num`, `year` and `currency`, in both methods. Values may be an `int`, `float`, `Decimal` or numeric string, and decimals are read digit by digit after the point word.
+
+Errors:
+- `ValueError` for an unsupported language, mode or currency, or for text that is not entirely one number phrase.
+- `OverflowError` for values at or above the largest the language can write: 10**15 for Amharic and 10**12 for Tigrinya and Afaan Oromoo.
+- `TypeError` for an ordinal of zero, a negative or a non-integer.
+
+See [docs/number_words.md](docs/number_words.md) for the word tables, the accepted variants and known behaviours.
 
 ### Text Normalization
 
