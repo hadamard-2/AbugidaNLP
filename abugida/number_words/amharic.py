@@ -1,4 +1,9 @@
+import re
+from decimal import Decimal
+
+from ..normalize_text import TextNormalizer
 from . import components, tables
+from .parser import Item
 
 MAXVAL = 10**15
 NEGATIVE = tables.AM["negative"]
@@ -120,3 +125,96 @@ def currency(whole: int, cents: int, code: str) -> str:
     if cents > 0:
         parts.append(f"{cardinal(cents)} {subunit}")
     return f" {table['currency_joiner']} ".join(parts)
+
+
+_NORMALIZER = TextNormalizer()
+_DIGITS = re.compile(r"\d+(\.\d+)?")
+
+
+def _normalize(word: str) -> str:
+    """Normalize a word the same way for lexicon keys and input tokens."""
+    return _NORMALIZER.normalize(word, "am")
+
+
+def _build_lexicon() -> dict[str, Item]:
+    """
+    Build the word lookup from the Amharic tables.
+
+    Keys go through the text normalizer, so spelling variants of one word share a key.
+
+    Returns:
+        Dict[str, Item]: Normalized word to item.
+
+    Raises:
+        ValueError: If two different words normalize to one key with different items.
+    """
+    table = tables.AM
+    base: dict[str, Item] = {}
+    for value, word in enumerate(table["digits"]):
+        base[word] = ("num", value)
+    base[table["teens_prefix"]] = ("num", 10)
+    for value, word in table["tens"].items():
+        base[word] = ("num", value)
+    for value, word in table["scales"].items():
+        base[word] = ("scale", value)
+    base[table["negative"]] = ("neg", 0)
+    base[table["point"]] = ("point", 0)
+    base[table["currency_joiner"]] = ("join", 0)
+    value_of = {word: item[1] for word, item in base.items() if item[0] in ("num", "scale")}
+    for plain, ordinal_word in table["ordinal_last"].items():
+        base[ordinal_word] = ("ord", value_of[plain])
+    for index, (unit, subunit) in enumerate(table["currencies"].values()):
+        base[unit] = ("unit", index)
+        base.setdefault(subunit, ("subunit", index))
+    for variant, canonical in table["accept"].items():
+        base[variant] = base[canonical]
+    lexicon: dict[str, Item] = {}
+    for word, item in base.items():
+        key = _normalize(word)
+        if lexicon.setdefault(key, item) != item:
+            raise ValueError(f"Conflicting Amharic lexicon entries for {key!r}")
+    return lexicon
+
+
+_LEXICON = _build_lexicon()
+CURRENCY_CODES = tuple(tables.AM["currencies"])
+
+
+def lex(token: str) -> list[Item]:
+    """
+    Read one Amharic token as number items.
+
+    Args:
+        token (str): A word or a digit string such as "3" or "1.5".
+
+    Returns:
+        List[Item]: The items the token stands for.
+
+    Raises:
+        ValueError: If the token is not a number word or a digit string.
+    """
+    if _DIGITS.fullmatch(token):
+        return [("num", Decimal(token) if "." in token else int(token))]
+    key = _normalize(token)
+    if key not in _LEXICON:
+        raise ValueError(f"Not an Amharic number word: {token!r}")
+    return [_LEXICON[key]]
+
+
+def parse_ordinal_num(token: str) -> int:
+    """
+    Read a numeric ordinal such as "3ኛ".
+
+    Args:
+        token (str): Digits followed by the suffix "ኛ".
+
+    Returns:
+        int: The number, at least 1.
+
+    Raises:
+        ValueError: If the token is not digits plus the suffix, or the number is 0.
+    """
+    match = re.fullmatch(r"(\d+)-?ኛ", token)
+    if not match or int(match.group(1)) < 1:
+        raise ValueError(f"Not an Amharic numeric ordinal: {token!r}")
+    return int(match.group(1))

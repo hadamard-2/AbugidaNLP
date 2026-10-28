@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from .number_words import amharic
+from .number_words import amharic, parser
 
 
 class NumberWordConverter:
@@ -169,3 +169,127 @@ class NumberWordConverter:
         if negative and (whole or cents):
             words = f"{module.NEGATIVE} {words}"
         return words
+
+    def to_number(self, text: str, language: str, to: str = "cardinal") -> int | Decimal | tuple[Decimal, str]:
+        """
+        Convert number words to a number.
+
+        The words are split on whitespace and read with the usual scale-grouping rule, so spelling
+        variants and digits mixed with scale words ("3 ሚሊዮን") are accepted.
+
+        Args:
+            text (str): The words, for example "ሃያ አምስት".
+            language (str): The language code ('am', 'ti' or 'om').
+            to (str): What the words are: 'cardinal', 'ordinal', 'ordinal_num', 'year' or 'currency'.
+
+        Returns:
+            int|Decimal|Tuple[Decimal, str]: An int for a whole number, a Decimal when the words
+                have a fraction, and (amount, currency code) for 'currency'. A phrase with only a
+                sub-unit gets the first currency code of the language.
+
+        Raises:
+            ValueError: If the language or mode is not supported, or the words are not a number.
+            TypeError: If text is not a string.
+            OverflowError: If the number is at or above the largest value of the language.
+            NotImplementedError: If the language is not implemented yet.
+        """
+        if language not in self.languages:
+            raise ValueError(f"Unsupported language: {language}")
+        if to not in self.modes:
+            raise ValueError(f"Unsupported mode: {to}")
+        if language not in self.maxval:
+            raise NotImplementedError(f"Language not implemented yet: {language}")
+        if not isinstance(text, str):
+            raise TypeError(f"text must be a string, not {type(text).__name__}")
+        module = self._modules[language]
+        maxval = self.maxval[language]
+        tokens = text.split()
+        if not tokens:
+            raise ValueError("No number words to read")
+        if to == "ordinal_num":
+            if len(tokens) != 1:
+                raise ValueError(f"Not a numeric ordinal: {text!r}")
+            return self._checked(module.parse_ordinal_num(tokens[0]), maxval)
+        items = [item for token in tokens for item in module.lex(token)]
+        if to == "currency":
+            return self._parse_currency(items, module, maxval)
+        negative = items[0][0] == "neg"
+        if negative:
+            items = items[1:]
+        if to == "ordinal":
+            if not items or items[-1][0] != "ord":
+                raise ValueError("An ordinal must end with an ordinal word")
+            kind = "scale" if items[-1][1] >= 100 else "num"
+            items = items[:-1] + [(kind, items[-1][1])]
+            value = self._checked(parser.fold_multiplier_first(items), maxval)
+            if negative or value < 1:
+                raise ValueError("An ordinal must be positive")
+            return value
+        kinds = [kind for kind, _ in items]
+        if "point" in kinds:
+            split = kinds.index("point")
+            whole = self._checked(parser.fold_multiplier_first(items[:split]), maxval)
+            digits = items[split + 1 :]
+            if not digits or any(kind != "num" or value != int(value) or not 0 <= value <= 9 for kind, value in digits):
+                raise ValueError("Fraction digits must be single digits")
+            number = Decimal(f"{whole}.{''.join(str(int(value)) for _, value in digits)}")
+            return -number if negative else number
+        value = self._checked(parser.fold_multiplier_first(items), maxval)
+        return -value if negative else value
+
+    @staticmethod
+    def _checked(value: int, maxval: int) -> int:
+        """Return value, or raise OverflowError when it is at or above maxval."""
+        if value >= maxval:
+            raise OverflowError(f"Value must be below {maxval}")
+        return value
+
+    def _parse_currency(self, items: list, module, maxval: int) -> tuple[Decimal, str]:
+        """
+        Read the items of a money amount.
+
+        Args:
+            items (List[Item]): The lexed items, optionally led by a negative word.
+            module: The language module, with CURRENCY_CODES.
+            maxval (int): The exclusive upper limit of the whole part.
+
+        Returns:
+            Tuple[Decimal, str]: The amount to two places and the currency code.
+
+        Raises:
+            ValueError: If the items are not a money amount.
+            OverflowError: If the whole part is at or above maxval.
+        """
+        negative = bool(items) and items[0][0] == "neg"
+        if negative:
+            items = items[1:]
+        kinds = [kind for kind, _ in items]
+        if kinds.count("unit") > 1 or kinds.count("subunit") > 1 or "point" in kinds or "neg" in kinds:
+            raise ValueError("Not a money amount")
+        unit_at = kinds.index("unit") if "unit" in kinds else None
+        sub_at = kinds.index("subunit") if "subunit" in kinds else None
+        if unit_at is None and sub_at is None:
+            raise ValueError("A money amount needs a currency word")
+        if sub_at is not None and sub_at != len(items) - 1:
+            raise ValueError("A sub-unit word must come last")
+        if unit_at is not None and sub_at is not None and unit_at > sub_at:
+            raise ValueError("The unit word must come before the sub-unit word")
+        whole = cents = 0
+        code_index = 0
+        rest = items
+        if unit_at is not None:
+            whole = self._checked(parser.fold_multiplier_first(items[:unit_at]), maxval)
+            code_index = items[unit_at][1]
+            rest = items[unit_at + 1 :]
+            if sub_at is not None and rest and rest[0][0] == "join":
+                rest = rest[1:]
+        if sub_at is not None:
+            sub_items = rest[:-1]
+            cents = parser.fold_multiplier_first(sub_items)
+            if cents > 99:
+                raise ValueError("Sub-units must be below 100")
+        elif rest:
+            raise ValueError("Unexpected words after the currency word")
+        amount = Decimal(whole) + Decimal(cents) / 100
+        amount = amount.quantize(Decimal("0.01"))
+        return (-amount if negative else amount), module.CURRENCY_CODES[code_index]
