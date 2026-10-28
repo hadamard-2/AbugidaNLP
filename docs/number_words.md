@@ -359,7 +359,8 @@ Ordinal variants:
 
 ## Known behaviours
 
-- Afaan Oromoo default forms can be ambiguous for rare large values: 900046 and 946000 both give "kuma dhibba sagal fi afurtamii ja'a". Parsing reads the string greedily as 946000.
-- "kuma dhibba shan" parses as 500000 (the default reading wins, not 1500).
-- "kuma digdama fi tokko" parses as 21000.
-- The Tigrinya and Amharic parsers are lenient about the "ን" patterns, so more spellings of a number are accepted than the generator would write.
+- Afaan Oromoo `to_words` writes the same words for some pairs of numbers: a scale group of exact hundreds followed by a part below 100 reads the same as a larger multiplier. 900046 and 946000 are both "kuma dhibba sagal fi afurtamii ja'a", and 100025 and 125000 are both "kuma dhibba tokko fi digdamii shan". Parsing reads these greedily, as the larger multiplier (946000, 125000).
+- Inside a longer Afaan Oromoo number the same pattern can only be told apart by where "fi" sits: 730507300070 ends "... fi torba kuma dhibba sadii fi torbaatama", and 730507370000 ends "... fi torba fi kuma dhibba sadii fi torbaatama". The parser accepts "fi" between any components, so it reads both as 730507370000. About 0.1% of random values below 10**12 fail to round-trip this way.
+- "kuma dhibba shan" parses as 500000, the default form of 500000 (it is not read as 1500 with "tokko" left out).
+- Inside a multiplier, "fi" never joins a tens word to its units, so "kuma digdama fi tokko" is 20001 (21000 is written "kuma digdamii tokko"). On its own, "digdama fi tokko" is 21.
+- The Tigrinya parser is lenient about "ን": it accepts "ን" on every component, on the last component only, on none, or written as a separate word, so it accepts more spellings of a number than the generator writes.
