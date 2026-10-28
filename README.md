@@ -13,6 +13,7 @@ AbugidaNLP is currently in its infancy, offering:
 - **Transliteration**: Convert text between Ethiopic and Latin scripts.
 - **Calendar System Conversion**: Seamlessly convert dates between Ethiopic and Gregorian calendars.
 - **Numeral System Conversion**: Translate numbers between Ge'ez and Hindu-Arabic numeral systems.
+- **Text Normalization**: Merge similar-sounding Ethiopic letters in Amharic and Tigrinya text so that variant spellings of a word match.
 
 ---
 
@@ -91,6 +92,24 @@ print(converter.convert("፯፻፷፭፼፵፫፻፳፩", "gz", "ha"))  # Output
 ```
 
 Ge'ez numerals follow the CLDR `%ethiopic` rule set, so output matches ICU. When parsing, an explicit `፩` before `፻` or `፼` (as in `፩፻`) is accepted, and malformed numerals such as `፻፻` raise a `ValueError`.
+
+### Text Normalization
+
+```python
+from abugida import TextNormalizer
+
+normalizer = TextNormalizer()
+
+# Amharic ("am")
+print(normalizer.normalize("ሐበሻ", "am"))  # Output: ሀበሻ
+print(normalizer.normalize("ዓለም", "am"))  # Output: አለም
+
+# Tigrinya ("ti")
+print(normalizer.normalize("ሓደ", "ti"))   # Output: ሃደ
+print(normalizer.normalize("ቐሺ", "ti"))   # Output: ቀሺ
+```
+
+Each language has its own rules; non-Ethiopic characters are left unchanged, and an unsupported language raises a `ValueError`. See [docs/normalization.md](docs/normalization.md) for the full table and [docs/alphabet.md](docs/alphabet.md) for the alphabet it is based on.
 
 ---
 
