@@ -64,8 +64,6 @@ class TestOromoToWords(unittest.TestCase):
     def test_currency_errors(self):
         with self.assertRaises(ValueError):
             self.converter.to_words(1, "om", to="currency", currency="ERN")
-        with self.assertRaises(ValueError):
-            self.converter.to_words(2.5, "om", to="currency", currency="EUR")
 
     def test_bounds(self):
         self.assertTrue(self.converter.to_words(10**12 - 1, "om").startswith("biiliyoona dhibba sagal fi biiliyoona sagaltamii sagal fi miiliyoona"))
@@ -180,6 +178,10 @@ class TestOromoToNumber(unittest.TestCase):
         self.assertEqual(self.parse("qarshii shantama", "currency"), (Decimal("50.00"), "ETB"))
         self.assertEqual(self.parse("kudha lama birrii shantama saantima", "currency"), (Decimal("12.50"), "ETB"))
         self.assertEqual(self.parse("lama yuuroo", "currency"), (Decimal("2.00"), "EUR"))
+        self.assertEqual(self.converter.to_words(2.5, "om", to="currency", currency="EUR"), "lama yuuroo shantama seentii")
+        self.assertEqual(self.parse("lama yuuroo shantama seentii", "currency"), (Decimal("2.50"), "EUR"))
+        # "seentii" alone names the first currency that uses it
+        self.assertEqual(self.parse("shantama seentii", "currency"), (Decimal("0.50"), "USD"))
         self.assertEqual(self.parse("shantama saantima", "currency"), (Decimal("0.50"), "ETB"))
 
     def test_rejects_non_numbers(self):

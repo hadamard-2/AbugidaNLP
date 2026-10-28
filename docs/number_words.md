@@ -283,7 +283,7 @@ Currencies:
 |---|---|---|
 | ETB | qarshii | saantima |
 | USD | doolaara | seentii |
-| EUR | yuuroo | (none yet) |
+| EUR | yuuroo | seentii |
 
 Ordinal words:
 
@@ -363,4 +363,5 @@ Ordinal variants:
 - The Afaan Oromoo generator does not lengthen the final vowel before "fi" ("tokko fi", not "tokkoo fi"). The parser accepts a doubled final vowel on a word that has a single-vowel form ("tokkoo"), but not lengthened forms such as "sagalii" or "torbaa".
 - "kuma dhibba shan" parses as 500000, the default form of 500000 (it is not read as 1500 with "tokko" left out).
 - Inside a multiplier, "fi" never joins a tens word to its units, so "kuma digdama fi tokko" is 20001 (21000 is written "kuma digdamii tokko"). On its own, "digdama fi tokko" is 21.
+- In Afaan Oromoo, USD and EUR share the sub-unit word "seentii". With a unit word the currency is clear ("lama yuuroo shantama seentii" is EUR), but a sub-unit with no unit word, such as "shantama seentii", is read as USD, the first currency in the table that uses the word. Amharic and Tigrinya have the same rule for any sub-unit word that currencies share.
 - The Tigrinya parser is lenient about "ን": it accepts "ን" on every component, on the last component only, on none, or written as a separate word, so it accepts more spellings of a number than the generator writes.

@@ -184,7 +184,8 @@ def _build_lexicon() -> dict[str, Item]:
     for index, (unit, subunit) in enumerate(table["currencies"].values()):
         base[unit] = ("unit", index)
         if subunit is not None:
-            base[subunit] = ("subunit", index)
+            # A sub-unit word shared by currencies names the first of them
+            base.setdefault(subunit, ("subunit", index))
     for accept in (table["accept"], table["ordinal_accept"]):
         for variant, canonical in accept.items():
             if variant != canonical and variant in base:

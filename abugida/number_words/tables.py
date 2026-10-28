@@ -209,7 +209,7 @@ OM = {
     "currencies": {
         "ETB": ("qarshii", "saantima"),
         "USD": ("doolaara", "seentii"),
-        "EUR": ("yuuroo", None),
+        "EUR": ("yuuroo", "seentii"),
     },
     # Word variants to accept (variant -> default word)
     "accept": {
