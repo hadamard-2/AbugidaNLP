@@ -185,7 +185,8 @@ class NumberWordConverter:
         Returns:
             int|Decimal|Tuple[Decimal, str]: An int for a whole number, a Decimal when the words
                 have a fraction, and (amount, currency code) for 'currency'. A phrase with only a
-                sub-unit gets the first currency code of the language.
+                sub-unit gets the currency of that sub-unit word, the first one in table order
+                when several currencies share it.
 
         Raises:
             ValueError: If the language or mode is not supported, or the words are not a number.
@@ -211,8 +212,10 @@ class NumberWordConverter:
         if to == "ordinal_num":
             return self._checked(module.parse_ordinal_num(" ".join(tokens)), maxval)
         items = [item for token in tokens for item in module.lex(token)]
-        # "skip" items are ignored everywhere, "cskip" items only in the currency mode
-        items = [item for item in items if item[0] != "skip" and not (to == "currency" and item[0] == "cskip")]
+        # "skip" items are ignored everywhere, "cskip" items only in the currency mode and
+        # "yskip" items only in the year mode
+        ignored = {"skip", {"currency": "cskip", "year": "yskip"}.get(to)}
+        items = [item for item in items if item[0] not in ignored]
         if not items:
             raise ValueError("No number words to read")
         if to == "currency":
@@ -226,7 +229,7 @@ class NumberWordConverter:
             if len(rest) == 1 and rest[0][0] == "ordword":
                 value = rest[0][1]
             else:
-                value = self._checked(parser.fold_multiplier_first(rest), maxval)
+                value = self._checked(self._fold(module, rest), maxval)
             if negative or value < 1:
                 raise ValueError("An ordinal must be positive")
             return value
@@ -235,21 +238,41 @@ class NumberWordConverter:
                 raise ValueError("An ordinal must end with an ordinal word")
             kind = "scale" if items[-1][1] >= 100 else "num"
             items = items[:-1] + [(kind, items[-1][1])]
-            value = self._checked(parser.fold_multiplier_first(items), maxval)
+            value = self._checked(self._fold(module, items), maxval)
             if negative or value < 1:
                 raise ValueError("An ordinal must be positive")
             return value
         kinds = [kind for kind, _ in items]
         if "point" in kinds:
             split = kinds.index("point")
-            whole = self._checked(parser.fold_multiplier_first(items[:split]), maxval)
+            whole = self._checked(self._fold(module, items[:split]), maxval)
             digits = items[split + 1 :]
             if not digits or any(kind != "num" or value != int(value) or not 0 <= value <= 9 for kind, value in digits):
                 raise ValueError("Fraction digits must be single digits")
             number = Decimal(f"{whole}.{''.join(str(int(value)) for _, value in digits)}")
             return -number if negative else number
-        value = self._checked(parser.fold_multiplier_first(items), maxval)
+        value = self._checked(self._fold(module, items, year=to == "year"), maxval)
         return -value if negative else value
+
+    @staticmethod
+    def _fold(module, items: list, year: bool = False) -> int:
+        """
+        Fold items with the language's own reading, or the multiplier-first one by default.
+
+        Args:
+            module: The language module, optionally with fold(items, year).
+            items (List[Item]): The number items.
+            year (bool): Whether the words are read in the year mode.
+
+        Returns:
+            int: The folded value.
+
+        Raises:
+            ValueError: If the items are not a number.
+        """
+        if hasattr(module, "fold"):
+            return module.fold(items, year)
+        return parser.fold_multiplier_first(items)
 
     @staticmethod
     def _checked(value: int, maxval: int) -> int:
@@ -264,7 +287,7 @@ class NumberWordConverter:
 
         Args:
             items (List[Item]): The lexed items, optionally led by a negative word.
-            module: The language module, with CURRENCY_CODES.
+            module: The language module, with CURRENCY_CODES and optionally CURRENCY_UNIT_FIRST.
             maxval (int): The exclusive upper limit of the whole part.
 
         Returns:
@@ -280,6 +303,9 @@ class NumberWordConverter:
         kinds = [kind for kind, _ in items]
         if kinds.count("unit") > 1 or kinds.count("subunit") > 1 or "point" in kinds or "neg" in kinds:
             raise ValueError("Not a money amount")
+        if getattr(module, "CURRENCY_UNIT_FIRST", False) and kinds[0] == "unit" and len(kinds) > 1 and "subunit" not in kinds:
+            # The unit word before the amount ("qarshii shantama") reads as the amount then the unit
+            items, kinds = items[1:] + items[:1], kinds[1:] + kinds[:1]
         unit_at = kinds.index("unit") if "unit" in kinds else None
         sub_at = kinds.index("subunit") if "subunit" in kinds else None
         if unit_at is None and sub_at is None:
@@ -289,17 +315,17 @@ class NumberWordConverter:
         if unit_at is not None and sub_at is not None and unit_at > sub_at:
             raise ValueError("The unit word must come before the sub-unit word")
         whole = cents = 0
-        code_index = 0
+        # A sub-unit word names its currency when there is no unit word
+        code_index = items[sub_at][1] if unit_at is None else items[unit_at][1]
         rest = items
         if unit_at is not None:
-            whole = self._checked(parser.fold_multiplier_first(items[:unit_at]), maxval)
-            code_index = items[unit_at][1]
+            whole = self._checked(self._fold(module, items[:unit_at]), maxval)
             rest = items[unit_at + 1 :]
             if sub_at is not None and rest and rest[0][0] == "join":
                 rest = rest[1:]
         if sub_at is not None:
             sub_items = rest[:-1]
-            cents = parser.fold_multiplier_first(sub_items)
+            cents = self._fold(module, sub_items)
             if cents > 99:
                 raise ValueError("Sub-units must be below 100")
         elif rest:

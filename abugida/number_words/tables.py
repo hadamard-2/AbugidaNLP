@@ -180,6 +180,8 @@ OM = {
         10**9: "biiliyoona",
     },
     "conjunction": "fi",
+    # Word for "year" that may lead a year ("bara kuma lama fi kudha shan")
+    "year_prefix": "bara",
     "negative": "negaatiivii",
     "point": "tuqaa",
     # Ordinals not made by adding "ffaa" or "affaa" to the cardinal word

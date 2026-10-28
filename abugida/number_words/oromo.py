@@ -1,4 +1,7 @@
-from . import components, tables
+import re
+
+from . import components, parser, tables
+from .parser import Item
 
 MAXVAL = 10**12
 NEGATIVE = tables.OM["negative"]
@@ -75,14 +78,18 @@ def ordinal(n: int, gender: str = "m") -> str:
     table = tables.OM
     # A number that is exactly one scale (100, 10**3, ...) loses its "tokko" ("dhibbaffaa")
     words = [table["scales"][n]] if n in table["scales"] else cardinal(n).split(" ")
-    last = words[-1]
-    if last in table["ordinal_irregular"]:
-        words[-1] = table["ordinal_irregular"][last]
-    elif last[-1] in _VOWELS:
-        words[-1] = last + table["ordinal_suffix"]
-    else:
-        words[-1] = last + table["ordinal_suffix_after_consonant"]
+    words[-1] = _ordinal_word(words[-1])
     return " ".join(words)
+
+
+def _ordinal_word(word: str) -> str:
+    """Turn one cardinal word into its ordinal: the irregular entry, else "ffaa" or "affaa"."""
+    table = tables.OM
+    if word in table["ordinal_irregular"]:
+        return table["ordinal_irregular"][word]
+    if word[-1] in _VOWELS:
+        return word + table["ordinal_suffix"]
+    return word + table["ordinal_suffix_after_consonant"]
 
 
 def ordinal_num(n: int, gender: str = "m") -> str:
@@ -139,3 +146,161 @@ def currency(whole: int, cents: int, code: str) -> str:
     if cents > 0:
         parts.append(f"{cardinal(cents)} {subunit}")
     return " ".join(parts)
+
+
+def _build_lexicon() -> dict[str, Item]:
+    """
+    Build the word lookup from the Afaan Oromoo tables.
+
+    Every digit, tens and scale word also gets its ordinal form ("lamaffaa", "dhibbaffaa") as an "ord" item.
+
+    Returns:
+        Dict[str, Item]: Lowercase word to item.
+
+    Raises:
+        ValueError: If an accepted variant is a word of its own, or two words share a key
+            with different items.
+    """
+    table = tables.OM
+    base: dict[str, Item] = {}
+    words = [(word, ("num", value)) for value, word in enumerate(table["digits"])]
+    words += [(word, ("num", value)) for value, word in table["tens"].items()]
+    words += [(word, ("scale", value)) for value, word in table["scales"].items()]
+    for word, (kind, value) in words:
+        base[word] = (kind, value)
+        if value > 0:
+            base[_ordinal_word(word)] = ("ord", value)
+    base[table["teens_prefix"]] = ("num", 10)
+    for value, word in table["tens_linked"].items():
+        base[word] = ("num", value)
+    base[table["conjunction"]] = ("join", 0)
+    base[table["year_prefix"]] = ("yskip", 0)
+    base[table["negative"]] = ("neg", 0)
+    base[table["point"]] = ("point", 0)
+    for index, (unit, subunit) in enumerate(table["currencies"].values()):
+        base[unit] = ("unit", index)
+        if subunit is not None:
+            base[subunit] = ("subunit", index)
+    for accept in (table["accept"], table["ordinal_accept"]):
+        for variant, canonical in accept.items():
+            if variant != canonical and variant in base:
+                raise ValueError(f"Accepted variant {variant!r} is already a word of its own")
+            base[variant] = base[canonical]
+    lexicon: dict[str, Item] = {}
+    for word, item in base.items():
+        if lexicon.setdefault(word.lower(), item) != item:
+            raise ValueError(f"Conflicting Afaan Oromoo lexicon entries for {word.lower()!r}")
+    return lexicon
+
+
+_LEXICON = _build_lexicon()
+CURRENCY_CODES = tuple(tables.OM["currencies"])
+# The unit word may also come first ("qarshii shantama")
+CURRENCY_UNIT_FIRST = True
+
+
+def lex(token: str) -> list[Item]:
+    """
+    Read one Afaan Oromoo token as number items.
+
+    The token is lowercased and a trailing comma dropped. "fi" is a "join" item, which the
+    head-first reading uses to end a multiplier. A word not in the lexicon is tried again
+    without a doubled final vowel ("tokkoo" is "tokko"), and a teen written as one word
+    ("kudhatokko", "kudha-tokko") is split after "kudha". "bara" is a "yskip" item, which only
+    the year mode ignores.
+
+    Args:
+        token (str): A word.
+
+    Returns:
+        List[Item]: The items the token stands for.
+
+    Raises:
+        ValueError: If the token is not a number word.
+    """
+    word = token.lower().removesuffix(",")
+    if word in _LEXICON:
+        return [_LEXICON[word]]
+    if len(word) > 2 and word[-1] in _VOWELS and word[-1] == word[-2] and word[:-1] in _LEXICON:
+        return [_LEXICON[word[:-1]]]
+    prefix = tables.OM["teens_prefix"]
+    rest = word.removeprefix(prefix).removeprefix("-")
+    if word.startswith(prefix) and rest in _LEXICON:
+        return [_LEXICON[prefix], _LEXICON[rest]]
+    raise ValueError(f"Not an Afaan Oromoo number word: {token!r}")
+
+
+def fold(items: list[Item], year: bool = False) -> int:
+    """
+    Fold number items, reading the scale-word-first order before the reversed one.
+
+    The head-first reading is tried first, so the default reading always wins. Only when it
+    fails is the multiplier-first order ("lama kuma") tried. In year mode, two numbers below
+    100 with the first at least 10 are also read as a year ("digdamii kudha shan" is 2015).
+
+    Args:
+        items (List[Item]): Items of kind "num", "scale" or "join".
+        year (bool): Whether the two-part year form is allowed.
+
+    Returns:
+        int: The folded value.
+
+    Raises:
+        ValueError: If no reading fits.
+    """
+    try:
+        return parser.fold_head_first(items)
+    except ValueError:
+        pass
+    if year:
+        try:
+            return _two_part_year(items)
+        except ValueError:
+            pass
+    return _reversed_order(items)
+
+
+def _reversed_order(items: list[Item]) -> int:
+    """Read the multiplier-first order ("lama kuma"), with single joins only between words."""
+    kinds = [kind for kind, _ in items]
+    if not items or "join" in (kinds[0], kinds[-1]) or any(a == b == "join" for a, b in zip(kinds, kinds[1:])):
+        raise ValueError("A conjunction must stand alone between two number words")
+    if len(items) > 1 and ("num", 0) in items:
+        raise ValueError("Zero cannot be part of a larger number")
+    return parser.fold_multiplier_first([item for item in items if item[0] != "join"])
+
+
+def _two_part_year(items: list[Item]) -> int:
+    """Read two numbers below 100, the first at least 10, as first * 100 + second."""
+    if any(kind not in ("num", "join") for kind, _ in items):
+        raise ValueError("A two-part year has no scale words")
+    # The longest first part comes first, like the greedy head-first reading
+    for split in range(len(items) - 1, 0, -1):
+        try:
+            century, rest = parser.fold_head_first(items[:split]), parser.fold_head_first(items[split:])
+        except ValueError:
+            continue
+        if 10 <= century and rest >= 1:
+            return century * 100 + rest
+    raise ValueError("Not a two-part year")
+
+
+def parse_ordinal_num(text: str) -> int:
+    """
+    Read a numeric ordinal such as "3ffaa" or "3-ffaa".
+
+    Args:
+        text (str): Digits plus the suffix "ffaa".
+
+    Returns:
+        int: The number, at least 1.
+
+    Raises:
+        ValueError: If the text is not a numeric ordinal, or the number is 0.
+    """
+    suffix = re.escape(tables.OM["ordinal_suffix"])
+    match = re.fullmatch(rf"(\d+)-?{suffix}", text.strip().lower())
+    number = int(match.group(1)) if match else 0
+    if number < 1:
+        raise ValueError(f"Not an Afaan Oromoo numeric ordinal: {text!r}")
+    return number

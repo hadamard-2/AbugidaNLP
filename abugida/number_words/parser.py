@@ -90,3 +90,103 @@ def fold_multiplier_first(items: list[Item]) -> int:
         else:
             raise ValueError(f"Cannot fold an item of kind {kind!r}")
     return total + int(group)
+
+
+class _Reader:
+    """A cursor over items that takes one item when it matches, optionally after a "join"."""
+
+    def __init__(self, items: list[Item]):
+        self.items = items
+        self.pos = 0
+
+    def done(self) -> bool:
+        return self.pos == len(self.items)
+
+    def take(self, kind: str, low: int, high: float, after_join: bool = False) -> int | None:
+        """
+        Take the next item if it is of the kind with a whole value in [low, high].
+
+        Args:
+            kind (str): The item kind to take.
+            low (int): The smallest value to take.
+            high (float): The largest value to take.
+            after_join (bool): Whether a single "join" item may come first; it is taken too.
+
+        Returns:
+            int|None: The value taken, or None when nothing was taken.
+        """
+        pos = self.pos
+        if after_join and pos < len(self.items) and self.items[pos][0] == "join":
+            pos += 1
+        if pos == len(self.items):
+            return None
+        item_kind, value = self.items[pos]
+        if item_kind != kind or value != int(value) or not low <= value <= high:
+            return None
+        self.pos = pos + 1
+        return int(value)
+
+
+def _below_100(reader: _Reader, after_join: bool) -> int:
+    """Read NUM, or TENS [join] DIGIT. Return 0 when nothing is read."""
+    value = reader.take("num", 1, 99, after_join)
+    if value is None:
+        return 0
+    if value % 10 == 0:
+        value += reader.take("num", 1, 9, after_join=True) or 0
+    return value
+
+
+def _below_1000(reader: _Reader, after_join: bool) -> int:
+    """Read ["dhibba" [DIGIT]] [join] [below_100]. Return 0 when nothing is read."""
+    hundreds = 0
+    if reader.take("scale", 100, 100, after_join) is not None:
+        hundreds = 100 * (reader.take("num", 1, 9) or 1)
+    return hundreds + _below_100(reader, after_join=after_join or hundreds > 0)
+
+
+def fold_head_first(items: list[Item]) -> int:
+    """
+    Fold number items written scale word first, each scale followed by its multiplier.
+
+    The grammar, read left to right and greedily ("join" is the word "and", DIGIT is 1 to 9 and
+    TENS is 10, 20, ... 90)::
+
+        number     := zero | group* [below_1000]           group scales strictly decrease
+        group      := SCALE>=1000 [below_1000]             no multiplier means 1
+        below_1000 := [100 [DIGIT]] [join] [below_100]     no DIGIT means 1
+        below_100  := NUM | TENS [join] DIGIT
+
+    One "join" may also come before every group but the first, and before the final part. A
+    multiplier is the longest phrase that follows its scale, so "kuma dhibba shan" is 500 000.
+    A "join" right after a scale word ends the multiplier before it starts, so the multiplier
+    is 1: "kuma fi dhibba shan" is 1500 and "dhibba fi shan" is 105.
+
+    Args:
+        items (List[Item]): Items of kind "num", "scale" or "join".
+
+    Returns:
+        int: The folded value.
+
+    Raises:
+        ValueError: If the items are empty, of another kind, or do not follow the grammar.
+    """
+    if not items:
+        raise ValueError("No number words to fold")
+    if items == [("num", 0)]:
+        return 0
+    reader = _Reader(items)
+    total = 0
+    last_scale = None
+    while not reader.done():
+        after_join = last_scale is not None
+        upper = last_scale - 1 if last_scale else float("inf")
+        scale = reader.take("scale", 1000, upper, after_join)
+        if scale is None:
+            total += _below_1000(reader, after_join)
+            break
+        total += scale * (_below_1000(reader, after_join=False) or 1)
+        last_scale = scale
+    if not reader.done():
+        raise ValueError("Not a head-first number phrase")
+    return total
