@@ -209,15 +209,27 @@ class NumberWordConverter:
         if not tokens:
             raise ValueError("No number words to read")
         if to == "ordinal_num":
-            if len(tokens) != 1:
-                raise ValueError(f"Not a numeric ordinal: {text!r}")
-            return self._checked(module.parse_ordinal_num(tokens[0]), maxval)
+            return self._checked(module.parse_ordinal_num(" ".join(tokens)), maxval)
         items = [item for token in tokens for item in module.lex(token)]
+        # "skip" items are ignored everywhere, "cskip" items only in the currency mode
+        items = [item for item in items if item[0] != "skip" and not (to == "currency" and item[0] == "cskip")]
+        if not items:
+            raise ValueError("No number words to read")
         if to == "currency":
             return self._parse_currency(items, module, maxval)
         negative = items[0][0] == "neg"
         if negative:
             items = items[1:]
+        if to == "ordinal" and items and items[0][0] in ("ordprefix", "ordword"):
+            # A prefix marker plus a cardinal or a dedicated ordinal word, or a dedicated word alone
+            rest = items[1:] if items[0][0] == "ordprefix" else items
+            if len(rest) == 1 and rest[0][0] == "ordword":
+                value = rest[0][1]
+            else:
+                value = self._checked(parser.fold_multiplier_first(rest), maxval)
+            if negative or value < 1:
+                raise ValueError("An ordinal must be positive")
+            return value
         if to == "ordinal":
             if not items or items[-1][0] != "ord":
                 raise ValueError("An ordinal must end with an ordinal word")

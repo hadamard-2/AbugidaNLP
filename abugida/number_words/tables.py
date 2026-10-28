@@ -118,6 +118,8 @@ TI = {
         "ERN": ("ናቕፋ", "ሳንቲም"),
     },
     "currency_joiner": "",
+    # Words skipped in the currency mode only
+    "currency_skip": ["ምስ", "ጥራይ", "ጥራሕ"],
     "accept": {
         "ዜሮ": "ባዶ",
         "ሓንቲ": "ሓደ",

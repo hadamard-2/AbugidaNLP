@@ -1,7 +1,10 @@
+import random
 import unittest
+from decimal import Decimal
+from unittest import mock
 
 from abugida import NumberWordConverter
-from abugida.number_words import tables
+from abugida.number_words import tables, tigrinya
 
 
 class TestTigrinyaCardinal(unittest.TestCase):
@@ -73,6 +76,116 @@ class TestTigrinyaFormats(unittest.TestCase):
                 self.assertEqual(self.converter.to_words(value, "ti", "currency", currency=code), words)
         with self.assertRaises(ValueError):
             self.converter.to_words(1, "ti", "currency", currency="GBP")
+
+
+class TestTigrinyaToNumber(unittest.TestCase):
+    def setUp(self):
+        self.converter = NumberWordConverter()
+
+    def parse(self, text, to="cardinal"):
+        return self.converter.to_number(text, "ti", to)
+
+    def test_round_trip(self):
+        numbers = list(range(0, 10001)) + [random.Random(0).randrange(10**12) for _ in range(300)]
+        for n in numbers:
+            words = self.converter.to_words(n, "ti")
+            self.assertEqual(self.parse(words), n, words)
+        for n in range(1, 2001):
+            for gender in ("m", "f"):
+                for mode in ("ordinal", "ordinal_num"):
+                    words = self.converter.to_words(n, "ti", mode, gender=gender)
+                    self.assertEqual(self.parse(words, mode), n, words)
+        for n in range(1, 3001):
+            self.assertEqual(self.parse(self.converter.to_words(n, "ti", "year"), "year"), n)
+        for whole in range(0, 301):
+            for cents in (0, 1, 50, 99):
+                if whole == 0 and cents == 0:
+                    continue
+                amount = Decimal(f"{whole}.{cents:02d}")
+                words = self.converter.to_words(amount, "ti", "currency", currency="ETB")
+                self.assertEqual(self.parse(words, "currency"), (amount, "ETB"), words)
+
+    def test_accepts_conjunction_patterns(self):
+        for text in ("ሺሕን ሓሙሽተ ሚእትን", "ሓደ ሺሕን ሓሙሽተ ሚእትን", "ሽሕን ሓሙሽተ ሚእቲ", "ሽሕ ሓሙሽተ ሚእቲ",
+                     "ሽሕ ን ሓሙሽተ ሚእቲ", "ዓሰርተ ሓሙሽተ ሚእቲ", "ሺ ሓሙሽተ ሚእቲ"):
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text), 1500)
+        for text in ("ዕስራን ሓሙሽተን", "ዕስራን ሓሙሽተ", "ዕስራ ሓሙሽተን", "ዕስራ ሓሙሽተ", "ዕስራ ን ሓሙሽተ"):
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text), 25)
+
+    def test_accepts_words(self):
+        for text, value in [
+            ("ዜሮ", 0), ("ሓንቲ", 1), ("ሽድሽተ", 6), ("ሾብዓተ", 7), ("ሱሳ", 60), ("ቴስዓ", 90), ("እስራ", 20),
+            ("አርባዕተ", 4), ("ሓደ ሚልዮን", 10**6), ("ሚሊዮን", 10**6), ("ሚነስ ሓሙሽተ", -5),
+            ("ኣሉታዊ ሓሙሽተ", -5), ("አሉታ ሓሙሽተ", -5), ("አርብዓ", 40), ("ሚልዮንን ሓደ", 10**6 + 1),
+        ]:
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text), value)
+
+    def test_ordinal_accepts(self):
+        self.assertEqual(self.parse("መበል ሓደ", "ordinal"), 1)
+        self.assertEqual(self.parse("መበል ቀዳማይ", "ordinal"), 1)
+        self.assertEqual(self.parse("ቀዳመይቲ", "ordinal"), 1)
+        self.assertEqual(self.parse("መበል ዓሰርተ ሓደ", "ordinal"), 11)
+        for text, value in [("3-ይ", 3), ("3ይ", 3), ("3ይቲ", 3), ("3-ይቲ", 3), ("መበል 11", 11)]:
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text, "ordinal_num"), value)
+
+    def test_ordinal_rejects(self):
+        for text in ("ሓደ", "ሓሙሽተ ቀዳማይ", "መበል", "መበል ቀዳማይ ሓደ", "ቀዳማይ ቀዳማይ", "ኣሉታ ቀዳማይ", "መበል ባዶ"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text, "ordinal")
+        for text in ("3", "0ይ", "ይ", "መበል", "መበል 0", "3ይ 4ይ", "ሳልሳይ"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text, "ordinal_num")
+        with self.assertRaises(ValueError):
+            self.parse("ቀዳማይ")
+
+    def test_currency_accepts(self):
+        for text in ("ዓሰርተ ክልተ ብርን ሓምሳ ሳንቲምን", "ዓሰርተ ክልተ ብር ምስ ሓምሳ ሰንት",
+                     "ዓሰርተ ክልተ ብር ሓምሳ ሳንቲም ጥራይ", "ዓሰርተ ክልተ ብር ሓምሳ ሳንቲም ጥራሕ"):
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text, "currency"), (Decimal("12.50"), "ETB"))
+        self.assertEqual(self.parse("ሰለስተ ናቕፋ", "currency"), (Decimal("3.00"), "ERN"))
+        self.assertEqual(self.parse("ሓምሳ ሳንቲም", "currency"), (Decimal("0.50"), "ETB"))
+        self.assertEqual(self.parse("ኣሉታ ሓደ ዶላር", "currency"), (Decimal("-1.00"), "USD"))
+
+    def test_currency_words_only_skipped_in_currency_mode(self):
+        for text in ("ሓደ ምስ ክልተ", "ሓደ ጥራይ"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text)
+
+    def test_conjunction_stripping(self):
+        self.assertEqual(self.parse("ክልተ ሚእትን"), 200)
+        self.assertEqual(self.parse("ሚልዮን"), 10**6)
+        self.assertEqual(self.parse("ክልተ ሚልዮን"), 2 * 10**6)
+        for text in ("ን", "ን ን", "ሓደ ናቕፋ", "ብርን"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text)
+
+    def test_decimals(self):
+        self.assertEqual(self.parse("ኣሉታ ክልተ ነጥቢ ሓሙሽተ"), Decimal("-2.5"))
+        self.assertEqual(self.parse("ባዶ ነጥቢ ባዶ ሓሙሽተ"), Decimal("0.05"))
+
+    def test_rejects_non_numbers(self):
+        for text in ("ሓሙሽተ ሽዱሽተ", "ዕስራ ሰላሳ", "ዓሰርተን ሓሙሽተን ሓሙሽተ", "ቤት", "ሚእቲን ሚእቲ", "ዕስራን ሓደን ሓደን"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text)
+
+    def test_overflow(self):
+        with self.assertRaises(OverflowError):
+            self.parse("ሺሕ ቢልዮን")
+
+    def test_lexicon_is_consistent(self):
+        self.assertEqual(tigrinya._build_lexicon(), tigrinya._LEXICON)
+        with mock.patch.dict(tables.TI["accept"], {"ዕስራ": "ሓደ"}):
+            with self.assertRaises(ValueError):
+                tigrinya._build_lexicon()
+
+    def test_unsupported_mode(self):
+        with self.assertRaises(ValueError):
+            self.converter.to_number("ሓደ", "ti", "bogus")
 
 
 if __name__ == "__main__":
