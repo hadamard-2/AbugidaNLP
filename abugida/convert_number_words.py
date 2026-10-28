@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from .number_words import amharic, parser, tigrinya
+from .number_words import amharic, oromo, parser, tigrinya
 
 
 class NumberWordConverter:
@@ -17,8 +17,8 @@ class NumberWordConverter:
 
     def __init__(self):
         # Largest value (exclusive) each implemented language can write
-        self.maxval = {"am": amharic.MAXVAL, "ti": tigrinya.MAXVAL}
-        self._modules = {"am": amharic, "ti": tigrinya}
+        self.maxval = {"am": amharic.MAXVAL, "ti": tigrinya.MAXVAL, "om": oromo.MAXVAL}
+        self._modules = {"am": amharic, "ti": tigrinya, "om": oromo}
 
     @staticmethod
     def _to_decimal(value) -> Decimal:

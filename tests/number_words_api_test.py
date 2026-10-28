@@ -17,12 +17,15 @@ class TestNumberWordConverterApi(unittest.TestCase):
             self.converter.to_words(1, "am", to="roman")
 
     def test_unimplemented_language(self):
+        # Every listed language is implemented, so simulate one that is listed but has no module
+        self.converter.languages = self.converter.languages + ("xx",)
         with self.assertRaises(NotImplementedError):
-            self.converter.to_words(1, "om")
+            self.converter.to_words(1, "xx")
 
     def test_unknown_mode_precedes_unimplemented_language(self):
+        self.converter.languages = self.converter.languages + ("xx",)
         with self.assertRaises(ValueError):
-            self.converter.to_words(1, "om", to="roman")
+            self.converter.to_words(1, "xx", to="roman")
 
     def test_components(self):
         self.assertEqual(components(2026), [(2, 1000), (20, 1), (6, 1)])
