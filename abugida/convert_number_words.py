@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from .number_words import amharic, parser
+from .number_words import amharic, parser, tigrinya
 
 
 class NumberWordConverter:
@@ -17,8 +17,8 @@ class NumberWordConverter:
 
     def __init__(self):
         # Largest value (exclusive) each implemented language can write
-        self.maxval = {"am": amharic.MAXVAL}
-        self._modules = {"am": amharic}
+        self.maxval = {"am": amharic.MAXVAL, "ti": tigrinya.MAXVAL}
+        self._modules = {"am": amharic, "ti": tigrinya}
 
     @staticmethod
     def _to_decimal(value) -> Decimal:
@@ -199,6 +199,8 @@ class NumberWordConverter:
             raise ValueError(f"Unsupported mode: {to}")
         if language not in self.maxval:
             raise NotImplementedError(f"Language not implemented yet: {language}")
+        if not hasattr(self._modules[language], "lex"):
+            raise NotImplementedError(f"Words-to-number not implemented yet: {language}")
         if not isinstance(text, str):
             raise TypeError(f"text must be a string, not {type(text).__name__}")
         module = self._modules[language]

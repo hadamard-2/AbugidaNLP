@@ -18,13 +18,11 @@ class TestNumberWordConverterApi(unittest.TestCase):
 
     def test_unimplemented_language(self):
         with self.assertRaises(NotImplementedError):
-            self.converter.to_words(1, "ti")
-        with self.assertRaises(NotImplementedError):
             self.converter.to_words(1, "om")
 
     def test_unknown_mode_precedes_unimplemented_language(self):
         with self.assertRaises(ValueError):
-            self.converter.to_words(1, "ti", to="roman")
+            self.converter.to_words(1, "om", to="roman")
 
     def test_components(self):
         self.assertEqual(components(2026), [(2, 1000), (20, 1), (6, 1)])
