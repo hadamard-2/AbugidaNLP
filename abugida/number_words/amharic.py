@@ -167,6 +167,8 @@ def _build_lexicon() -> dict[str, Item]:
         base[unit] = ("unit", index)
         base.setdefault(subunit, ("subunit", index))
     for variant, canonical in table["accept"].items():
+        if variant in base:
+            raise ValueError(f"Accepted variant {variant!r} is already a word of its own")
         base[variant] = base[canonical]
     lexicon: dict[str, Item] = {}
     for word, item in base.items():

@@ -1,9 +1,10 @@
 import random
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 from abugida import NumberWordConverter
-from abugida.number_words import amharic
+from abugida.number_words import amharic, tables
 
 
 class TestAmharicCardinal(unittest.TestCase):
@@ -230,8 +231,21 @@ class TestAmharicToNumber(unittest.TestCase):
     def test_ordinal_num_parse(self):
         self.assertEqual(self.parse("3ኛ", "ordinal_num"), 3)
 
-    def test_lexicon_has_no_conflicting_keys(self):
-        self.assertTrue(len(amharic._LEXICON) > 50)
+    def test_scale_product_only_for_single_scale_group(self):
+        self.assertEqual(self.parse("ሺህ ሚሊዮን"), 10**9)
+        self.assertEqual(self.parse("አንድ ሺህ ሚሊዮን"), 10**9)
+        for text in ("አንድ ሚሊዮን ሺህ ሚሊዮን", "ሺህ ሚሊዮን ቢሊዮን"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text)
+
+    def test_lenient_ten_then_unit(self):
+        self.assertEqual(self.parse("አሥር አንድ"), 11)
+
+    def test_lexicon_conflict_is_detected(self):
+        self.assertEqual(amharic._build_lexicon(), amharic._LEXICON)
+        with mock.patch.dict(tables.AM["accept"], {"ሃያ": "አንድ"}):
+            with self.assertRaises(ValueError):
+                amharic._build_lexicon()
 
 
 if __name__ == "__main__":

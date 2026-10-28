@@ -32,6 +32,7 @@ def fold_multiplier_first(items: list[Item]) -> int:
     last_small = None
     last_scale = None  # scale applied to total most recently
     smallest_scale = None  # smallest scale applied to total so far
+    scales_applied = 0  # how many scales >= 1000 have been applied to total
     for index, (kind, value) in enumerate(items):
         if kind == "num":
             if value < 0:
@@ -65,7 +66,10 @@ def fold_multiplier_first(items: list[Item]) -> int:
             elif value >= 1000:
                 if last_small == 0:
                     raise ValueError("Zero cannot take a scale")
-                if group == 0 and total > 0 and last_scale is not None and value > last_scale:
+                # Which check handles which case: a lone larger scale multiplies the total only when the
+                # total is a single scale group (scales_applied == 1); any other scale that is not
+                # below the smallest applied one fails the ordering check right after it.
+                if group == 0 and scales_applied == 1 and total > 0 and value > last_scale:
                     total *= value
                 else:
                     if smallest_scale is not None and value >= smallest_scale:
@@ -79,6 +83,7 @@ def fold_multiplier_first(items: list[Item]) -> int:
                 group = 0
                 last_small = None
                 last_scale = value
+                scales_applied += 1
                 smallest_scale = value
             else:
                 raise ValueError(f"Unsupported scale: {value}")
