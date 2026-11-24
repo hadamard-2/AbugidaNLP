@@ -158,7 +158,8 @@ def _build_lexicon() -> dict[str, Item]:
     """
     Build the word lookup from the Afaan Oromoo tables.
 
-    Every digit, tens and scale word also gets its ordinal form ("lamaffaa", "dhibbaffaa") as an "ord" item.
+    Every digit, tens and scale word also gets its ordinal form ("lamaffaa", "dhibbaffaa") as an "ord" item,
+    and the word with "ffaa" added unchanged ("shanffaa", "sadiiffaa") as another spelling of it.
 
     Returns:
         Dict[str, Item]: Lowercase word to item.
@@ -176,6 +177,7 @@ def _build_lexicon() -> dict[str, Item]:
         base[word] = (kind, value)
         if value > 0:
             base[_ordinal_word(word)] = ("ord", value)
+            base.setdefault(word + table["ordinal_suffix"], ("ord", value))
     base[table["teens_prefix"]] = ("num", 10)
     for value, word in table["tens_linked"].items():
         base[word] = ("num", value)

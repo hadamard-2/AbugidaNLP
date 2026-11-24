@@ -195,9 +195,9 @@ Dedicated words for 1st to 10th. From 11th up the ordinal is the prefix and the 
 | 4 | ራብዓይ | ራብዐይቲ |
 | 5 | ሓምሻይ | ሓምሸይቲ |
 | 6 | ሻድሻይ | ሻድሸይቲ |
-| 7 | ሳብዓይ | ሳብዐይቲ |
-| 8 | ሳምናይ | ሳምነይቲ |
-| 9 | ታስዓይ | ታስዐይቲ |
+| 7 | ሻብዓይ | ሻብዐይቲ |
+| 8 | ሻምናይ | ሻምነይቲ |
+| 9 | ታሽዓይ | ታሽዐይቲ |
 | 10 | ዓስራይ | ዓስረይቲ |
 
 Numeric ordinals: 1-10 take the suffix `ይ` (feminine `ይቲ`) after the digits; 11 and up are the prefix and the digits.
@@ -225,6 +225,17 @@ The parser accepts these in addition to the default words.
 | ቢሊዮን | ቢልዮን |
 | ሳድሳይ | ሻድሻይ |
 | ሳድሰይቲ | ሻድሸይቲ |
+| ሳብዓይ | ሻብዓይ |
+| ሳብዐይቲ | ሻብዐይቲ |
+| ሻውዓይ | ሻብዓይ |
+| ሻውዐይቲ | ሻብዐይቲ |
+| ሻብዓይቲ | ሻብዐይቲ |
+| ሳምናይ | ሻምናይ |
+| ሳምነይቲ | ሻምነይቲ |
+| ሻሙናይ | ሻምናይ |
+| ታስዓይ | ታሽዓይ |
+| ታስዐይቲ | ታሽዐይቲ |
+| ታሽዓይቲ | ታሽዐይቲ |
 | ኣሉታዊ | ኣሉታ |
 | ነገቲቭ | ኣሉታ |
 | ማይነስ | ኣሉታ |
@@ -298,7 +309,7 @@ Currencies:
 
 Ordinal words:
 
-Ordinals add `ffaa` after a vowel and `affaa` after a consonant, except for these irregular ones.
+Ordinals add `ffaa` after a vowel and `affaa` after a consonant, except for these irregular ones. A number that is exactly one scale leaves out "tokko" ("dhibbaffaa", "kumaffaa", "miiliyoonaffaa").
 
 | Cardinal word | Ordinal word |
 |---|---|
@@ -371,7 +382,8 @@ Ordinal variants:
 ## Known behaviours
 
 - Afaan Oromoo `to_words` puts "fi" only before the last component (5327 is "kuma shan dhibba sadii fi digdamii torba"). It repeats the scale word for the hundreds and for the rest of a group, joined by "fi", so 125000 is "kuma dhibba tokko fi kuma digdamii shan" and 100025 is "kuma dhibba tokko fi digdamii shan". The "fi" placement follows a Gemini review of modern spoken Afaan Oromoo; the repeated scale word follows a description the author supplied and is waiting for a native speaker's check. Neither has been checked against a published grammar. The parser also reads "fi" between every two components.
-- The Afaan Oromoo generator does not lengthen the final vowel before "fi" ("tokko fi", not "tokkoo fi"). The parser accepts a doubled final vowel on a word that has a single-vowel form ("tokkoo"), but not lengthened forms such as "sagalii" or "torbaa" on their own. It also reads "fi" attached to the word before it as "-f" or "-fi", as it is often spoken, with a lengthened vowel or an added "ii" after a consonant: "dhibba lamaaf soddomii afur" is 234, "kuma tokkoofi dhibba shan" is 1500 and "kuma shaniif dhibba sadii" is 5300.
+- The Afaan Oromoo generator does not lengthen the final vowel before "fi" ("tokko fi", not "tokkoo fi"). The parser accepts a doubled final vowel on any word that ends in a vowel, including the accepted spoken forms ("tokkoo", "torbaa", and "sagalii" from "sagali"). It also reads "fi" attached to the word before it as "-f" or "-fi", as it is often spoken, with a lengthened vowel or an added "ii" after a consonant: "dhibba lamaaf soddomii afur" is 234, "kuma tokkoofi dhibba shan" is 1500 and "kuma shaniif dhibba sadii" is 5300.
+- The Afaan Oromoo parser also reads an ordinal written as the plain cardinal word plus "ffaa", without the vowel or stem change ("shanffaa", "sadiiffaa", "kudhanffaa"), alongside the default forms ("shanaffaa", "sadaffaa", "kurnaffaa").
 - "kuma dhibba shan" parses as 500000, the default form of 500000 (it is not read as 1500 with "tokko" left out).
 - Inside a multiplier, "fi" never joins a tens word to its units, so "kuma digdama fi tokko" is 20001 (21000 is written "kuma digdamii tokko"). On its own, "digdama fi tokko" is 21.
 - In Afaan Oromoo, USD and EUR share the sub-unit word "seentii". With a unit word the currency is clear ("lama yuuroo shantama seentii" is EUR), but a sub-unit with no unit word, such as "shantama seentii", is read as USD, the first currency in the table that uses the word. Amharic and Tigrinya have the same rule for any sub-unit word that currencies share.

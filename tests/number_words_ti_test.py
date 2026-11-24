@@ -50,7 +50,8 @@ class TestTigrinyaFormats(unittest.TestCase):
     def test_ordinals(self):
         for number, words, gender in [
             (1, "ቀዳማይ", "m"), (3, "ሳልሳይ", "m"), (10, "ዓስራይ", "m"), (3, "ሳልሰይቲ", "f"),
-            (6, "ሻድሻይ", "m"), (6, "ሻድሸይቲ", "f"),
+            (6, "ሻድሻይ", "m"), (6, "ሻድሸይቲ", "f"), (7, "ሻብዓይ", "m"), (7, "ሻብዐይቲ", "f"),
+            (8, "ሻምናይ", "m"), (8, "ሻምነይቲ", "f"), (9, "ታሽዓይ", "m"), (9, "ታሽዐይቲ", "f"),
             (11, "መበል ዓሰርተ ሓደ", "m"), (21, "መበል ዕስራን ሓደን", "m"), (100, "መበል ሓደ ሚእቲ", "m"),
         ]:
             with self.subTest(number=number, gender=gender):
@@ -148,6 +149,13 @@ class TestTigrinyaToNumber(unittest.TestCase):
         self.assertEqual(self.parse("መበል ዓሰርተ ሓደ", "ordinal"), 11)
         self.assertEqual(self.parse("ሳድሳይ", "ordinal"), 6)
         self.assertEqual(self.parse("ሳድሰይቲ", "ordinal"), 6)
+        for text, value in [
+            ("ሳብዓይ", 7), ("ሳብዐይቲ", 7), ("ሻውዓይ", 7), ("ሻውዐይቲ", 7), ("ሻብዓይቲ", 7),
+            ("ሳምናይ", 8), ("ሳምነይቲ", 8), ("ሻሙናይ", 8),
+            ("ታስዓይ", 9), ("ታስዐይቲ", 9), ("ታሽዓይቲ", 9), ("መበል ሻብዓይ", 7),
+        ]:
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text, "ordinal"), value)
         self.assertEqual(self.parse("መበል ሚእቲ", "ordinal"), 100)
         for text, value in [("3-ይ", 3), ("3ይ", 3), ("3ይቲ", 3), ("3-ይቲ", 3), ("መበል 11", 11),
                             (f"መበል {10**20}", 10**20)]:

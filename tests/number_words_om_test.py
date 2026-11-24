@@ -194,6 +194,13 @@ class TestOromoToNumber(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text, "ordinal"), value)
         self.assertEqual(self.parse("3ffaa", "ordinal_num"), 3)
+        # "ffaa" added to the plain cardinal word, without the vowel or stem change
+        for text, value in [
+            ("sadiiffaa", 3), ("afurffaa", 4), ("shanffaa", 5), ("saddeetffaa", 8), ("sagalffaa", 9),
+            ("kudhanffaa", 10), ("digdama fi shanffaa", 25), ("kuma fi lama dhibba fi soddoma fi afurffaa", 1234),
+        ]:
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text, "ordinal"), value)
         self.assertEqual(self.parse(f"{10**20}ffaa", "ordinal_num"), 10**20)
         for text in ("lama", "0ffaa"):
             with self.subTest(text=text), self.assertRaises(ValueError):
