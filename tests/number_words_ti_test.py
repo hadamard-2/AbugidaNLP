@@ -38,8 +38,8 @@ class TestTigrinyaCardinal(unittest.TestCase):
     def test_accept_table(self):
         accept = tables.TI["accept"]
         for variant in ("ዜሮ", "ሓንቲ", "ሽድሽተ", "ሸድሽተ", "ሾብዓተ", "ሾሞንተ", "ተሽዓተ", "ትሻዓተ", "እስራ",
-                        "ሱሳ", "ቴስዓ", "ሽሕ", "ሺ", "ሚሊዮን", "ቢሊዮን", "ኣሉታዊ", "ሚነስ", "ኔጌቲቭ", "ሰንት",
-                        "አርባዕተ", "አርብዓ", "አሉታ"):
+                        "ሱሳ", "ቴስዓ", "ሽሕ", "ሺ", "ሚሊዮን", "ቢሊዮን", "ኣሉታዊ", "ኔጌቲቭ", "ነገቲቭ", "ማይነስ", "ሰንት",
+                        "አርባዕተ", "አርብዓ"):
             self.assertIn(variant, accept)
 
 
@@ -118,8 +118,9 @@ class TestTigrinyaToNumber(unittest.TestCase):
     def test_accepts_words(self):
         for text, value in [
             ("ዜሮ", 0), ("ሓንቲ", 1), ("ሽድሽተ", 6), ("ሾብዓተ", 7), ("ሱሳ", 60), ("ቴስዓ", 90), ("እስራ", 20),
-            ("አርባዕተ", 4), ("ሓደ ሚልዮን", 10**6), ("ሚሊዮን", 10**6), ("ሚነስ ሓሙሽተ", -5),
-            ("ኣሉታዊ ሓሙሽተ", -5), ("አሉታ ሓሙሽተ", -5), ("አርብዓ", 40), ("ሚልዮንን ሓደ", 10**6 + 1),
+            ("አርባዕተ", 4), ("ሓደ ሚልዮን", 10**6), ("ሚሊዮን", 10**6), ("ነገቲቭ ሓሙሽተ", -5),
+            ("ማይነስ ሓሙሽተ", -5),
+            ("ኣሉታዊ ሓሙሽተ", -5), ("አርብዓ", 40), ("ሚልዮንን ሓደ", 10**6 + 1),
         ]:
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text), value)
@@ -170,7 +171,8 @@ class TestTigrinyaToNumber(unittest.TestCase):
         self.assertEqual(self.parse("ባዶ ነጥቢ ባዶ ሓሙሽተ"), Decimal("0.05"))
 
     def test_rejects_non_numbers(self):
-        for text in ("ሓሙሽተ ሽዱሽተ", "ዕስራ ሰላሳ", "ዓሰርተን ሓሙሽተን ሓሙሽተ", "ቤት", "ሚእቲን ሚእቲ", "ዕስራን ሓደን ሓደን"):
+        for text in ("ሓሙሽተ ሽዱሽተ", "ዕስራ ሰላሳ", "ዓሰርተን ሓሙሽተን ሓሙሽተ", "ቤት", "ሚእቲን ሚእቲ", "ዕስራን ሓደን ሓደን",
+                     "አሉታ ሓሙሽተ", "ሚነስ ሓሙሽተ"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 self.parse(text)
 
