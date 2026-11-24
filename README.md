@@ -103,6 +103,7 @@ converter = NumberWordConverter()
 
 # Number to words: Amharic ("am"), Tigrinya ("ti") and Afaan Oromoo ("om")
 print(converter.to_words(1500, "am"))                                  # Output: አንድ ሺህ አምስት መቶ
+print(converter.to_words(125, "am", explicit_one=False))               # Output: መቶ ሃያ አምስት
 print(converter.to_words(-2.5, "am"))                                  # Output: ኔጌቲቭ ሁለት ነጥብ አምስት
 print(converter.to_words(3, "am", to="ordinal"))                       # Output: ሦስተኛ
 print(converter.to_words(3, "am", to="ordinal_num"))                   # Output: 3ኛ
@@ -117,11 +118,11 @@ print(converter.to_number("ሦስተኛ", "am", to="ordinal"))                # 
 print(converter.to_number("አሥራ ሁለት ብር ከ ሃምሳ ሳንቲም", "am", to="currency"))  # Output: (Decimal('12.50'), 'ETB')
 ```
 
-`to_words` writes one default form per number, and `to_number` accepts the spoken variants of it ("ሺ" as well as "አንድ ሺህ"). `to=` is one of `cardinal` (the default), `ordinal`, `ordinal_num`, `year` and `currency`, in both methods. Values may be an `int`, `float`, `Decimal` or numeric string, and decimals are read digit by digit after the point word.
+`to_words` writes one default form per number, and `to_number` accepts the spoken variants of it ("ሺ" as well as "አንድ ሺህ"). `to=` is one of `cardinal` (the default), `ordinal`, `ordinal_num`, `year` and `currency`, in both methods. Values may be an `int`, `float`, `Decimal` or numeric string, and decimals are read digit by digit after the point word. Amharic and Tigrinya write an explicit "one" before a scale word ("አንድ መቶ", "ሓደ ሽሕ"); `explicit_one=False` leaves it out for numbers from 100 to 199.
 
 Errors:
 - `ValueError` for an unsupported language, mode or currency, or for text that is not entirely one number phrase.
-- `OverflowError` for values at or above the largest the language can write: 10**15 for Amharic and 10**12 for Tigrinya and Afaan Oromoo.
+- `OverflowError` for values at or above the largest the language can write: 10**15 for Amharic and 10**12 for Tigrinya and Afaan Oromoo. Numeric ordinals (`ordinal_num`) have no upper limit.
 - `TypeError` for an ordinal of zero, a negative or a non-integer.
 
 See [docs/number_words.md](docs/number_words.md) for the word tables, the accepted variants and known behaviours.

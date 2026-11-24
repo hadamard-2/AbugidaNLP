@@ -14,13 +14,17 @@ class TestOromoToWords(unittest.TestCase):
         (101, "dhibba tokko fi tokko"), (125, "dhibba tokko fi digdamii shan"), (1000, "kuma tokko"),
         (1500, "kuma tokko fi dhibba shan"), (2015, "kuma lama fi kudha shan"),
         (2026, "kuma lama fi digdamii ja'a"), (5000, "kuma shan"),
-        (5327, "kuma shan fi dhibba sadii fi digdamii torba"), (10**6, "miiliyoona tokko"),
+        (5327, "kuma shan dhibba sadii fi digdamii torba"), (10**6, "miiliyoona tokko"),
+        (1234, "kuma tokko dhibba lama fi soddomii afur"), (1_500_000, "miiliyoona tokko fi kuma dhibba shan"),
+        (999_999, "kuma dhibba sagal fi kuma sagaltamii sagal dhibba sagal fi sagaltamii sagal"),
+        (1_234_567, "miiliyoona tokko kuma dhibba lama fi kuma soddomii afur dhibba shan fi jaatamii torba"),
+        (101_000, "kuma dhibba tokko fi kuma tokko"),
         (125_000, "kuma dhibba tokko fi kuma digdamii shan"), (100_025, "kuma dhibba tokko fi digdamii shan"),
         (946_000, "kuma dhibba sagal fi kuma afurtamii ja'a"), (900_046, "kuma dhibba sagal fi afurtamii ja'a"),
-        (1125, "kuma tokko fi dhibba tokko fi digdamii shan"),
-        (730_507_300_070, "biiliyoona dhibba torba fi biiliyoona soddoma fi miiliyoona dhibba shan fi miiliyoona torba"
-                          " fi kuma dhibba sadii fi torbaatama"),
-        (730_507_370_000, "biiliyoona dhibba torba fi biiliyoona soddoma fi miiliyoona dhibba shan fi miiliyoona torba"
+        (1125, "kuma tokko dhibba tokko fi digdamii shan"),
+        (730_507_300_070, "biiliyoona dhibba torba fi biiliyoona soddoma miiliyoona dhibba shan fi miiliyoona torba"
+                          " kuma dhibba sadii fi torbaatama"),
+        (730_507_370_000, "biiliyoona dhibba torba fi biiliyoona soddoma miiliyoona dhibba shan fi miiliyoona torba"
                           " fi kuma dhibba sadii fi kuma torbaatama"),
     ]
 
@@ -50,6 +54,7 @@ class TestOromoToWords(unittest.TestCase):
 
     def test_ordinal_num(self):
         self.assertEqual(self.converter.to_words(3, "om", to="ordinal_num"), "3ffaa")
+        self.assertEqual(self.converter.to_words(10**20, "om", to="ordinal_num"), f"{10**20}ffaa")
 
     def test_negative_decimal(self):
         self.assertEqual(self.converter.to_words(-2.5, "om"), "negaatiivii lama tuqaa shan")
@@ -66,7 +71,7 @@ class TestOromoToWords(unittest.TestCase):
             self.converter.to_words(1, "om", to="currency", currency="ERN")
 
     def test_bounds(self):
-        self.assertTrue(self.converter.to_words(10**12 - 1, "om").startswith("biiliyoona dhibba sagal fi biiliyoona sagaltamii sagal fi miiliyoona"))
+        self.assertTrue(self.converter.to_words(10**12 - 1, "om").startswith("biiliyoona dhibba sagal fi biiliyoona sagaltamii sagal miiliyoona"))
         with self.assertRaises(OverflowError):
             self.converter.to_words(10**12, "om")
         self.assertEqual(oromo.MAXVAL, 10**12)
@@ -112,10 +117,29 @@ class TestOromoToNumber(unittest.TestCase):
             ("jaha", 6), ("jaa", 6), ("duwwaa", 0), ("miliyoona", 10**6), ("hir'uu shan", -5),
             ("minus shan", -5), ("lama tuqaa shan", Decimal("2.5")), ("lama qabxii shan", Decimal("2.5")),
             ("Kuma Lamaa fi Kudha Shan", 2015), ("dhibba fi shan", 105), ("kudha shan", 15),
+            ("kuma shan fi dhibba sadii fi digdamii torba", 5327),
+            ("kuma tokko fi dhibba lama fi soddomii afur", 1234),
         ]
         for text, value in cases:
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text), value)
+
+    def test_accepts_fi_attached_to_the_word_before(self):
+        # Spoken "fi" often attaches to the word before it as "-f" or "-fi", lengthening a final
+        # vowel or adding "ii" after a consonant
+        cases = [
+            ("dhibbaaf tokko", 101), ("dhibba tokkoof tokko", 101), ("dhibbaafi tokko", 101),
+            ("kuma tokkoof dhibba shan", 1500), ("kumaaf dhibba shan", 1500), ("kuma lamaaf kudha shan", 2015),
+            ("kuma tokko dhibba lamaaf soddomii afur", 1234), ("kuma tokkoofi dhibba shan", 1500),
+            ("kuma shaniif dhibba sadiif digdamii torba", 5327), ("digdamaaf shan", 25),
+            ("kuma dhibba tokkoof kuma digdamii shan", 125_000), ("kuma afuriif dhibba sagaliif tokko", 4901),
+        ]
+        for text, value in cases:
+            with self.subTest(text=text):
+                self.assertEqual(self.parse(text), value)
+        for text in ("f", "fi", "sagaliif", "kumaaf"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.parse(text)
 
     def test_dropped_tokko_reads_greedily(self):
         # A multiplier is read greedily, so a dropped "tokko" is taken as part of the multiplier.
@@ -170,6 +194,7 @@ class TestOromoToNumber(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text, "ordinal"), value)
         self.assertEqual(self.parse("3ffaa", "ordinal_num"), 3)
+        self.assertEqual(self.parse(f"{10**20}ffaa", "ordinal_num"), 10**20)
         for text in ("lama", "0ffaa"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 self.parse(text, "ordinal" if text == "lama" else "ordinal_num")

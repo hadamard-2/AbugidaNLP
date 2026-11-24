@@ -15,8 +15,10 @@ Every value where the two outputs differ is printed as "value | ours | theirs", 
 the number of differences out of the total.
 
 Differences expected as of num2words2 commit a7bde8c:
-    am: "መቶ" for 100 and "አስራ" for 16; ሰልቢ for negative.
-    ti: "ን" as a separate word, put on teens, and not on the last part; ሽሕ rather than ሺሕ.
+    am: "መቶ" for 100 (unless explicit_one=False), "አስራ" for 16, አምሳ for 50 and ስድሳ for 60;
+        ሰልቢ for negative.
+    ti: "ን" as a separate word, put on teens, and not on the last part; no "ሓደ" before a scale
+        word; "ሚእቲ ን" rather than "ሚእትን".
     om: multiplier-first order; "fi" between every level; "kudhan fi" teens; "digdama fi"
         instead of "digdamii"; no explicit "tokko"; "sadiiffaa"; "minus".
 Where num2words2 differs from the design, the design wins.

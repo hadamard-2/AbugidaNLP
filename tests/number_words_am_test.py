@@ -35,7 +35,7 @@ class TestAmharicCardinal(unittest.TestCase):
 class TestAmharicFormats(unittest.TestCase):
     ORDINALS = [
         (1, "አንደኛ"), (3, "ሦስተኛ"), (10, "አሥረኛ"), (11, "አሥራ አንደኛ"), (20, "ሃያኛ"),
-        (21, "ሃያ አንደኛ"), (100, "መቶኛ"), (1000, "ሺህኛ"), (10**6, "ሚሊዮንኛ"),
+        (21, "ሃያ አንደኛ"), (100, "አንድ መቶኛ"), (1000, "አንድ ሺህኛ"), (10**6, "አንድ ሚሊዮንኛ"),
         (101, "አንድ መቶ አንደኛ"), (200, "ሁለት መቶኛ"), (2015, "ሁለት ሺህ አሥራ አምስተኛ"),
         (60, "ስልሳኛ"), (165, "አንድ መቶ ስልሳ አምስተኛ"),
     ]
@@ -53,6 +53,23 @@ class TestAmharicFormats(unittest.TestCase):
     def test_ordinal_num(self):
         self.assertEqual(self.converter.to_words(3, "am", to="ordinal_num"), "3ኛ")
         self.assertEqual(amharic.ordinal_num(2015), "2015ኛ")
+        self.assertEqual(self.converter.to_words(10**20, "am", to="ordinal_num"), f"{10**20}ኛ")
+
+    def test_without_explicit_one(self):
+        for number, mode, words in [
+            (100, "cardinal", "መቶ"), (125, "cardinal", "መቶ ሃያ አምስት"), (199, "cardinal", "መቶ ዘጠና ዘጠኝ"),
+            (200, "cardinal", "ሁለት መቶ"), (1000, "cardinal", "አንድ ሺህ"),
+            (1100, "cardinal", "አንድ ሺህ አንድ መቶ"), (100_000, "cardinal", "አንድ መቶ ሺህ"),
+            (100, "ordinal", "መቶኛ"), (150, "ordinal", "መቶ ሃምሳኛ"), (1000, "ordinal", "አንድ ሺህኛ"),
+            (150, "year", "መቶ ሃምሳ"),
+        ]:
+            with self.subTest(number=number, mode=mode):
+                self.assertEqual(self.converter.to_words(number, "am", mode, explicit_one=False), words)
+        self.assertEqual(self.converter.to_words(150, "am", "currency", currency="ETB", explicit_one=False), "መቶ ሃምሳ ብር")
+        self.assertEqual(self.converter.to_words(-1.5, "am", explicit_one=False), "ኔጌቲቭ አንድ ነጥብ አምስት")
+        for n in range(100, 200):
+            words = self.converter.to_words(n, "am", explicit_one=False)
+            self.assertEqual(self.converter.to_number(words, "am"), n, words)
 
     def test_ordinal_rejects(self):
         for bad in (0, -1, 2.5):
@@ -238,6 +255,7 @@ class TestAmharicToNumber(unittest.TestCase):
 
     def test_ordinal_num_parse(self):
         self.assertEqual(self.parse("3ኛ", "ordinal_num"), 3)
+        self.assertEqual(self.parse(f"{10**20}ኛ", "ordinal_num"), 10**20)
 
     def test_scale_product_only_for_single_scale_group(self):
         self.assertEqual(self.parse("ሺህ ሚሊዮን"), 10**9)

@@ -11,12 +11,12 @@ class TestTigrinyaCardinal(unittest.TestCase):
     CASES = [
         (0, "ባዶ"), (5, "ሓሙሽተ"), (6, "ሽዱሽተ"), (12, "ዓሰርተ ክልተ"), (20, "ዕስራ"),
         (21, "ዕስራን ሓደን"), (35, "ሰላሳን ሓሙሽተን"), (99, "ተስዓን ትሽዓተን"),
-        (100, "ሚእቲ"), (101, "ሚእትን ሓደን"), (125, "ሚእትን ዕስራን ሓሙሽተን"), (200, "ክልተ ሚእቲ"),
+        (100, "ሓደ ሚእቲ"), (101, "ሓደ ሚእትን ሓደን"), (125, "ሓደ ሚእትን ዕስራን ሓሙሽተን"), (200, "ክልተ ሚእቲ"),
         (615, "ሽዱሽተ ሚእትን ዓሰርተ ሓሙሽተን"), (812, "ሸሞንተ ሚእትን ዓሰርተ ክልተን"),
-        (1000, "ሺሕ"), (1500, "ሺሕን ሓሙሽተ ሚእትን"), (2015, "ክልተ ሺሕን ዓሰርተ ሓሙሽተን"),
-        (2025, "ክልተ ሺሕን ዕስራን ሓሙሽተን"), (2026, "ክልተ ሺሕን ዕስራን ሽዱሽተን"), (5000, "ሓሙሽተ ሺሕ"),
-        (21_000, "ዕስራን ሓደን ሺሕ"), (21_005, "ዕስራን ሓደን ሺሕን ሓሙሽተን"),
-        (10**6, "ሚልዮን"), (1_500_000, "ሚልዮንን ሓሙሽተ ሚእቲ ሺሕን"), (10**9, "ቢልዮን"),
+        (1000, "ሓደ ሽሕ"), (1500, "ሓደ ሽሕን ሓሙሽተ ሚእትን"), (2015, "ክልተ ሽሕን ዓሰርተ ሓሙሽተን"),
+        (2025, "ክልተ ሽሕን ዕስራን ሓሙሽተን"), (2026, "ክልተ ሽሕን ዕስራን ሽዱሽተን"), (5000, "ሓሙሽተ ሽሕ"),
+        (21_000, "ዕስራን ሓደን ሽሕ"), (21_005, "ዕስራን ሓደን ሽሕን ሓሙሽተን"), (100_000, "ሓደ ሚእቲ ሽሕ"),
+        (10**6, "ሓደ ሚልዮን"), (1_500_000, "ሓደ ሚልዮንን ሓሙሽተ ሚእቲ ሽሕን"), (10**9, "ሓደ ቢልዮን"),
     ]
 
     def setUp(self):
@@ -38,7 +38,7 @@ class TestTigrinyaCardinal(unittest.TestCase):
     def test_accept_table(self):
         accept = tables.TI["accept"]
         for variant in ("ዜሮ", "ሓንቲ", "ሽድሽተ", "ሸድሽተ", "ሾብዓተ", "ሾሞንተ", "ተሽዓተ", "ትሻዓተ", "እስራ",
-                        "ሱሳ", "ቴስዓ", "ሽሕ", "ሺ", "ሚሊዮን", "ቢሊዮን", "ኣሉታዊ", "ኔጌቲቭ", "ነገቲቭ", "ማይነስ", "ሰንት",
+                        "ሱሳ", "ቴስዓ", "ሺሕ", "ሺ", "ሳድሳይ", "ሳድሰይቲ", "ሚሊዮን", "ቢሊዮን", "ኣሉታዊ", "ኔጌቲቭ", "ነገቲቭ", "ማይነስ", "ሰንት",
                         "አርባዕተ", "አርብዓ"):
             self.assertIn(variant, accept)
 
@@ -50,7 +50,8 @@ class TestTigrinyaFormats(unittest.TestCase):
     def test_ordinals(self):
         for number, words, gender in [
             (1, "ቀዳማይ", "m"), (3, "ሳልሳይ", "m"), (10, "ዓስራይ", "m"), (3, "ሳልሰይቲ", "f"),
-            (11, "መበል ዓሰርተ ሓደ", "m"), (21, "መበል ዕስራን ሓደን", "m"), (100, "መበል ሚእቲ", "m"),
+            (6, "ሻድሻይ", "m"), (6, "ሻድሸይቲ", "f"),
+            (11, "መበል ዓሰርተ ሓደ", "m"), (21, "መበል ዕስራን ሓደን", "m"), (100, "መበል ሓደ ሚእቲ", "m"),
         ]:
             with self.subTest(number=number, gender=gender):
                 self.assertEqual(self.converter.to_words(number, "ti", "ordinal", gender=gender), words)
@@ -58,9 +59,23 @@ class TestTigrinyaFormats(unittest.TestCase):
     def test_ordinal_num(self):
         for number, words, gender in [
             (1, "1ይ", "m"), (10, "10ይ", "m"), (3, "3ይቲ", "f"), (11, "መበል 11", "m"), (100, "መበል 100", "m"),
+            (10**20, f"መበል {10**20}", "m"),
         ]:
             with self.subTest(number=number, gender=gender):
                 self.assertEqual(self.converter.to_words(number, "ti", "ordinal_num", gender=gender), words)
+
+    def test_without_explicit_one(self):
+        for number, mode, words in [
+            (100, "cardinal", "ሚእቲ"), (101, "cardinal", "ሚእትን ሓደን"), (199, "cardinal", "ሚእትን ተስዓን ትሽዓተን"),
+            (200, "cardinal", "ክልተ ሚእቲ"), (1000, "cardinal", "ሓደ ሽሕ"),
+            (1100, "cardinal", "ሓደ ሽሕን ሓደ ሚእትን"), (100_000, "cardinal", "ሓደ ሚእቲ ሽሕ"),
+            (100, "ordinal", "መበል ሚእቲ"), (1000, "ordinal", "መበል ሓደ ሽሕ"),
+        ]:
+            with self.subTest(number=number, mode=mode):
+                self.assertEqual(self.converter.to_words(number, "ti", mode, explicit_one=False), words)
+        for n in range(100, 200):
+            words = self.converter.to_words(n, "ti", explicit_one=False)
+            self.assertEqual(self.converter.to_number(words, "ti"), n, words)
 
     def test_negative_decimal(self):
         self.assertEqual(self.converter.to_words(-2.5, "ti"), "ኣሉታ ክልተ ነጥቢ ሓሙሽተ")
@@ -120,7 +135,8 @@ class TestTigrinyaToNumber(unittest.TestCase):
             ("ዜሮ", 0), ("ሓንቲ", 1), ("ሽድሽተ", 6), ("ሾብዓተ", 7), ("ሱሳ", 60), ("ቴስዓ", 90), ("እስራ", 20),
             ("አርባዕተ", 4), ("ሓደ ሚልዮን", 10**6), ("ሚሊዮን", 10**6), ("ነገቲቭ ሓሙሽተ", -5),
             ("ማይነስ ሓሙሽተ", -5),
-            ("ኣሉታዊ ሓሙሽተ", -5), ("አርብዓ", 40), ("ሚልዮንን ሓደ", 10**6 + 1),
+            ("ኣሉታዊ ሓሙሽተ", -5), ("አርብዓ", 40), ("ሚልዮንን ሓደ", 10**6 + 1), ("ሺሕ", 1000),
+            ("ክልተ ሺሕን ዓሰርተ ሓሙሽተን", 2015),
         ]:
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text), value)
@@ -130,7 +146,11 @@ class TestTigrinyaToNumber(unittest.TestCase):
         self.assertEqual(self.parse("መበል ቀዳማይ", "ordinal"), 1)
         self.assertEqual(self.parse("ቀዳመይቲ", "ordinal"), 1)
         self.assertEqual(self.parse("መበል ዓሰርተ ሓደ", "ordinal"), 11)
-        for text, value in [("3-ይ", 3), ("3ይ", 3), ("3ይቲ", 3), ("3-ይቲ", 3), ("መበል 11", 11)]:
+        self.assertEqual(self.parse("ሳድሳይ", "ordinal"), 6)
+        self.assertEqual(self.parse("ሳድሰይቲ", "ordinal"), 6)
+        self.assertEqual(self.parse("መበል ሚእቲ", "ordinal"), 100)
+        for text, value in [("3-ይ", 3), ("3ይ", 3), ("3ይቲ", 3), ("3-ይቲ", 3), ("መበል 11", 11),
+                            (f"መበል {10**20}", 10**20)]:
             with self.subTest(text=text):
                 self.assertEqual(self.parse(text, "ordinal_num"), value)
 

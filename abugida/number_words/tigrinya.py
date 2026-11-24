@@ -19,16 +19,18 @@ def _suffixed(word: str, scale: int = 1) -> str:
     return word + table["conjunction"]
 
 
-def cardinal(n: int) -> str:
+def cardinal(n: int, explicit_one: bool = True) -> str:
     """
     Write a whole number as Tigrinya words in the formal form.
 
     A number of one component (5, 20, 200, 5000) is written bare. A number of several components
     puts "ን" on the last word of every component. A teen is one block with "ን" only on its last
-    word. A scale word never takes "ሓደ" before it.
+    word. A scale word has an explicit "ሓደ" before it for one ("ሓደ ሽሕ").
 
     Args:
         n (int): The number to write, 0 <= n < 10**12.
+        explicit_one (bool): When False, a number from 100 to 199 leaves out its leading "ሓደ"
+            ("ሚእትን ሓደን"). Larger numbers always keep it.
 
     Returns:
         str: The number in words, separated by single spaces.
@@ -50,7 +52,7 @@ def cardinal(n: int) -> str:
             scale_word = table["scales"][scale]
             if joined:
                 scale_word = _suffixed(scale_word, scale)
-            words = scale_word if value == 1 else f"{cardinal(value)} {scale_word}"
+            words = f"{cardinal(value)} {scale_word}"
         elif value <= 10:
             words = table["digits"][value]
             if joined:
@@ -64,10 +66,12 @@ def cardinal(n: int) -> str:
             if joined:
                 words = _suffixed(words)
         chunks.append(words)
+    if not explicit_one and 100 <= n < 200:
+        chunks[0] = chunks[0].split(" ", 1)[1]
     return " ".join(chunks)
 
 
-def ordinal(n: int, gender: str = "m") -> str:
+def ordinal(n: int, gender: str = "m", explicit_one: bool = True) -> str:
     """
     Write a positive whole number as a Tigrinya ordinal.
 
@@ -76,6 +80,7 @@ def ordinal(n: int, gender: str = "m") -> str:
     Args:
         n (int): The number, at least 1.
         gender (str): "m" (default) or "f".
+        explicit_one (bool): Passed on to cardinal(), so False gives "መበል ሚእቲ" for 100.
 
     Returns:
         str: The ordinal in words.
@@ -91,7 +96,7 @@ def ordinal(n: int, gender: str = "m") -> str:
     table = tables.TI
     if n <= 10:
         return table["ordinals_1_10"][n][gender == "f"]
-    return f"{table['ordinal_prefix']} {cardinal(n)}"
+    return f"{table['ordinal_prefix']} {cardinal(n, explicit_one)}"
 
 
 def ordinal_num(n: int, gender: str = "m") -> str:
@@ -109,19 +114,16 @@ def ordinal_num(n: int, gender: str = "m") -> str:
 
     Raises:
         TypeError: If n is not an integer, or is less than 1.
-        OverflowError: If n is 10**12 or more.
     """
     if not isinstance(n, int) or isinstance(n, bool) or n < 1:
         raise TypeError("ordinal_num() needs a positive integer")
-    if n >= MAXVAL:
-        raise OverflowError(f"number must be below {MAXVAL}")
     table = tables.TI
     if n <= 10:
         return f"{n}{table['ordinal_num_suffix'][gender == 'f']}"
     return f"{table['ordinal_prefix']} {n}"
 
 
-def currency(whole: int, cents: int, code: str) -> str:
+def currency(whole: int, cents: int, code: str, explicit_one: bool = True) -> str:
     """
     Write a money amount as Tigrinya words.
 
@@ -132,6 +134,7 @@ def currency(whole: int, cents: int, code: str) -> str:
         whole (int): The whole units, at least 0.
         cents (int): The sub-units, 0 to 99.
         code (str): The currency code, for example "ETB".
+        explicit_one (bool): Passed on to cardinal() for the whole units.
 
     Returns:
         str: The amount in words, "ባዶ" plus the unit when both parts are zero.
@@ -146,7 +149,7 @@ def currency(whole: int, cents: int, code: str) -> str:
     unit, subunit = table["currencies"][code]
     parts = []
     if whole > 0 or cents == 0:
-        parts.append(f"{cardinal(whole)} {unit}")
+        parts.append(f"{cardinal(whole, explicit_one)} {unit}")
     if cents > 0:
         parts.append(f"{cardinal(cents)} {subunit}")
     joiner = f" {table['currency_joiner']} " if table["currency_joiner"] else " "

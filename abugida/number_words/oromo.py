@@ -11,17 +11,19 @@ ZERO = tables.OM["digits"][0]
 _VOWELS = "aeiou"
 
 
-def cardinal(n: int) -> str:
+def cardinal(n: int, explicit_one: bool = True) -> str:
     """
     Write a whole number as Afaan Oromoo words, scale word first, with an explicit "tokko".
 
     Each scale group is the scale word and its multiplier ("kuma lama"). A group of 100 or more
-    that is not exact hundreds repeats the scale word for its hundreds and for the rest
-    ("kuma dhibba tokko fi kuma digdamii shan" is 125 000). Tens and units are one component
-    ("digdamii shan"), and "fi" goes between every two components.
+    that is not exact hundreds repeats the scale word for its hundreds and for the rest, joined
+    by "fi" ("kuma dhibba tokko fi kuma digdamii shan" is 125 000). Tens and units are one
+    component ("digdamii shan"). Between components, "fi" goes only before the last one
+    ("kuma shan dhibba sadii fi digdamii torba").
 
     Args:
         n (int): The number to write, 0 <= n < 10**12.
+        explicit_one (bool): Ignored, Afaan Oromoo always writes "tokko".
 
     Returns:
         str: The number in words, separated by single spaces.
@@ -41,9 +43,8 @@ def cardinal(n: int) -> str:
         if scale > 1:
             scale_word = table["scales"][scale]
             rest = value % 100 if value > 100 else 0
-            for piece in (value - rest, rest):
-                if piece:
-                    parts.append(f"{scale_word} {cardinal(piece)}")
+            pieces = [f"{scale_word} {cardinal(piece)}" for piece in (value - rest, rest) if piece]
+            parts.append(f" {table['conjunction']} ".join(pieces))
         elif value >= 20 and value % 10 == 0:
             # A tens word waits to see if a units word follows it
             pending_tens = value
@@ -56,10 +57,12 @@ def cardinal(n: int) -> str:
             parts.append(f"{table['teens_prefix']} {table['digits'][value - 10]}")
     if pending_tens:
         parts.append(table["tens"][pending_tens])
-    return f" {table['conjunction']} ".join(parts)
+    if len(parts) > 1:
+        parts[-1] = f"{table['conjunction']} {parts[-1]}"
+    return " ".join(parts)
 
 
-def ordinal(n: int, gender: str = "m") -> str:
+def ordinal(n: int, gender: str = "m", explicit_one: bool = True) -> str:
     """
     Write a positive whole number as an Afaan Oromoo ordinal.
 
@@ -69,6 +72,7 @@ def ordinal(n: int, gender: str = "m") -> str:
     Args:
         n (int): The number, at least 1.
         gender (str): Ignored, Afaan Oromoo ordinals do not change with gender.
+        explicit_one (bool): Ignored, Afaan Oromoo always writes "tokko".
 
     Returns:
         str: The ordinal in words.
@@ -109,16 +113,13 @@ def ordinal_num(n: int, gender: str = "m") -> str:
 
     Raises:
         TypeError: If n is not an integer, or is less than 1.
-        OverflowError: If n is 10**12 or more.
     """
     if not isinstance(n, int) or isinstance(n, bool) or n < 1:
         raise TypeError("ordinal_num() needs a positive integer")
-    if n >= MAXVAL:
-        raise OverflowError(f"number must be below {MAXVAL}")
     return f"{n}{tables.OM['ordinal_suffix']}"
 
 
-def currency(whole: int, cents: int, code: str) -> str:
+def currency(whole: int, cents: int, code: str, explicit_one: bool = True) -> str:
     """
     Write a money amount as Afaan Oromoo words, amount then unit.
 
@@ -129,6 +130,7 @@ def currency(whole: int, cents: int, code: str) -> str:
         whole (int): The whole units, at least 0.
         cents (int): The sub-units, 0 to 99.
         code (str): The currency code, for example "ETB".
+        explicit_one (bool): Ignored, Afaan Oromoo always writes "tokko".
 
     Returns:
         str: The amount in words, "zeeroo" plus the unit when both parts are zero.
@@ -211,8 +213,10 @@ def lex(token: str) -> list[Item]:
     The token is lowercased and a trailing comma dropped. "fi" is a "join" item, which the
     head-first reading uses to end a multiplier. A word not in the lexicon is tried again
     without a doubled final vowel ("tokkoo" is "tokko"), and a teen written as one word
-    ("kudhatokko", "kudha-tokko") is split after "kudha". "bara" is a "yskip" item, which only
-    the year mode ignores.
+    ("kudhatokko", "kudha-tokko") is split after "kudha". "fi" attached to the word before it
+    as "-f" or "-fi" is read as that word plus a "join", allowing a lengthened final vowel or
+    an added "ii" after a consonant ("lamaaf", "tokkoofi", "shaniif"). "bara" is a "yskip"
+    item, which only the year mode ignores.
 
     Args:
         token (str): A word.
@@ -224,6 +228,25 @@ def lex(token: str) -> list[Item]:
         ValueError: If the token is not a number word.
     """
     word = token.lower().removesuffix(",")
+    items = _lex_word(word)
+    if items is None:
+        conjunction = tables.OM["conjunction"]
+        for suffix in (conjunction, conjunction[0]):
+            stem = word.removesuffix(suffix)
+            if stem == word or not stem:
+                continue
+            # "shaniif" adds "ii" after a consonant; "lamaaf" doubles the final vowel
+            stems = [stem, stem.removesuffix("ii")] if stem.endswith("ii") else [stem]
+            for candidate in stems:
+                found = _lex_word(candidate)
+                if found and found[-1][0] in ("num", "scale"):
+                    return found + [_LEXICON[conjunction]]
+        raise ValueError(f"Not an Afaan Oromoo number word: {token!r}")
+    return items
+
+
+def _lex_word(word: str) -> list[Item] | None:
+    """Look up a lowercase word, a doubled final vowel or a one-word teen; None if it is none of these."""
     if word in _LEXICON:
         return [_LEXICON[word]]
     if len(word) > 2 and word[-1] in _VOWELS and word[-1] == word[-2] and word[:-1] in _LEXICON:
@@ -232,7 +255,7 @@ def lex(token: str) -> list[Item]:
     rest = word.removeprefix(prefix).removeprefix("-")
     if word.startswith(prefix) and rest in _LEXICON:
         return [_LEXICON[prefix], _LEXICON[rest]]
-    raise ValueError(f"Not an Afaan Oromoo number word: {token!r}")
+    return None
 
 
 def fold(items: list[Item], year: bool = False) -> int:

@@ -11,12 +11,14 @@ POINT = tables.AM["point"]
 ZERO = tables.AM["digits"][0]
 
 
-def cardinal(n: int) -> str:
+def cardinal(n: int, explicit_one: bool = True) -> str:
     """
-    Write a whole number as Amharic words, always with an explicit "አንድ" before a scale word.
+    Write a whole number as Amharic words, with an explicit "አንድ" before a scale word.
 
     Args:
         n (int): The number to write, 0 <= n < 10**15.
+        explicit_one (bool): When False, a number from 100 to 199 leaves out its leading "አንድ"
+            ("መቶ ሃያ አምስት"). Larger numbers always keep it.
 
     Returns:
         str: The number in words, separated by single spaces.
@@ -42,20 +44,20 @@ def cardinal(n: int) -> str:
             words.append(table["digits"][value - 10])
         else:
             words.append(table["tens"][value])
+    if not explicit_one and 100 <= n < 200:
+        words = words[1:]
     return " ".join(words)
 
 
-def ordinal(n: int, gender: str = "m") -> str:
+def ordinal(n: int, gender: str = "m", explicit_one: bool = True) -> str:
     """
-    Write a positive whole number as an Amharic ordinal.
-
-    A number that is exactly one scale (100, 10**3, 10**6, 10**9, 10**12) loses its "አንድ" and
-    becomes the bare scale ordinal ("መቶኛ"). Any other number is its cardinal with the last word
-    turned into its ordinal form.
+    Write a positive whole number as an Amharic ordinal: its cardinal with the last word turned
+    into its ordinal form ("አንድ ሺህኛ").
 
     Args:
         n (int): The number, at least 1.
         gender (str): Ignored, Amharic ordinals do not change with gender.
+        explicit_one (bool): Passed on to cardinal(), so False gives "መቶኛ" for 100.
 
     Returns:
         str: The ordinal in words.
@@ -67,9 +69,7 @@ def ordinal(n: int, gender: str = "m") -> str:
     if not isinstance(n, int) or isinstance(n, bool) or n < 1:
         raise TypeError("ordinal() needs a positive integer")
     table = tables.AM
-    if n in table["scales"]:
-        return table["ordinal_last"][table["scales"][n]]
-    words = cardinal(n).split(" ")
+    words = cardinal(n, explicit_one).split(" ")
     words[-1] = table["ordinal_last"][words[-1]]
     return " ".join(words)
 
@@ -87,16 +87,13 @@ def ordinal_num(n: int, gender: str = "m") -> str:
 
     Raises:
         TypeError: If n is not an integer, or is less than 1.
-        OverflowError: If n is 10**15 or more.
     """
     if not isinstance(n, int) or isinstance(n, bool) or n < 1:
         raise TypeError("ordinal_num() needs a positive integer")
-    if n >= MAXVAL:
-        raise OverflowError(f"number must be below {MAXVAL}")
     return f"{n}ኛ"
 
 
-def currency(whole: int, cents: int, code: str) -> str:
+def currency(whole: int, cents: int, code: str, explicit_one: bool = True) -> str:
     """
     Write a money amount as Amharic words.
 
@@ -107,6 +104,7 @@ def currency(whole: int, cents: int, code: str) -> str:
         whole (int): The whole units, at least 0.
         cents (int): The sub-units, 0 to 99.
         code (str): The currency code, for example "ETB".
+        explicit_one (bool): Passed on to cardinal() for the whole units.
 
     Returns:
         str: The amount in words, "ዜሮ" plus the unit when both parts are zero.
@@ -121,7 +119,7 @@ def currency(whole: int, cents: int, code: str) -> str:
     unit, subunit = table["currencies"][code]
     parts = []
     if whole > 0 or cents == 0:
-        parts.append(f"{cardinal(whole)} {unit}")
+        parts.append(f"{cardinal(whole, explicit_one)} {unit}")
     if cents > 0:
         parts.append(f"{cardinal(cents)} {subunit}")
     return f" {table['currency_joiner']} ".join(parts)

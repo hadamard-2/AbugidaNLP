@@ -85,6 +85,7 @@ class NumberWordConverter:
         to: str = "cardinal",
         currency: str | None = None,
         gender: str = "m",
+        explicit_one: bool = True,
     ) -> str:
         """
         Convert a number to words.
@@ -99,6 +100,8 @@ class NumberWordConverter:
             to (str): The mode: 'cardinal', 'ordinal', 'ordinal_num', 'year' or 'currency'.
             currency (str|None): The currency code, for the 'currency' mode.
             gender (str): 'm' or 'f', for languages with gendered ordinals.
+            explicit_one (bool): When False, Amharic and Tigrinya numbers from 100 to 199 leave
+                out the leading "one" ("መቶ ሃያ አምስት" for 125). Afaan Oromoo ignores it.
 
         Returns:
             str: The number in words.
@@ -108,7 +111,8 @@ class NumberWordConverter:
                 is a string that is not a finite number.
             TypeError: If the value type is not supported, or an ordinal is asked for zero, a
                 negative or a non-integer.
-            OverflowError: If the value is at or above the largest value of the language.
+            OverflowError: If the value is at or above the largest value of the language, in any
+                mode but 'ordinal_num', which has no upper limit.
             NotImplementedError: If the language is not implemented yet.
         """
         if language not in self.languages:
@@ -120,22 +124,27 @@ class NumberWordConverter:
         module = self._modules[language]
         maxval = self.maxval[language]
         number = self._to_decimal(value)
+        # A numeric ordinal is digits plus a suffix, so only the modes that write words are limited
+        limited = to != "ordinal_num"
         # adjusted() is the exponent of the leading digit, so this never builds a huge int
-        if number.adjusted() >= len(str(maxval)):
+        if limited and number.adjusted() >= len(str(maxval)):
             raise OverflowError(f"Value must be below {maxval}")
 
         if to == "currency":
-            return self._currency_words(number, module, currency, maxval)
+            return self._currency_words(number, module, currency, maxval, explicit_one)
 
         negative, integer, fraction = self._split_decimal(number)
-        if integer >= maxval:
+        if limited and integer >= maxval:
             raise OverflowError(f"Value must be below {maxval}")
-        if to in ("ordinal", "ordinal_num"):
+        if to == "ordinal_num":
             if negative or fraction or integer < 1:
                 raise TypeError("Ordinals need a positive integer")
-            function = module.ordinal if to == "ordinal" else module.ordinal_num
-            return function(integer, gender)
-        words = [module.cardinal(integer)]
+            return module.ordinal_num(integer, gender)
+        if to == "ordinal":
+            if negative or fraction or integer < 1:
+                raise TypeError("Ordinals need a positive integer")
+            return module.ordinal(integer, gender, explicit_one)
+        words = [module.cardinal(integer, explicit_one)]
         if negative:
             words.insert(0, module.NEGATIVE)
         if fraction:
@@ -143,7 +152,7 @@ class NumberWordConverter:
             words.extend(module.cardinal(int(digit)) for digit in fraction)
         return " ".join(words)
 
-    def _currency_words(self, number: Decimal, module, code: str | None, maxval: int) -> str:
+    def _currency_words(self, number: Decimal, module, code: str | None, maxval: int, explicit_one: bool) -> str:
         """
         Write a money amount, rounded to two places half up, in a language's words.
 
@@ -152,6 +161,7 @@ class NumberWordConverter:
             module: The language module, with NEGATIVE and currency().
             code (str|None): The currency code.
             maxval (int): The exclusive upper limit of the whole part.
+            explicit_one (bool): Passed on to the language's currency().
 
         Returns:
             str: The amount in words.
@@ -165,7 +175,7 @@ class NumberWordConverter:
         whole, cents = divmod(int(rounded * 100), 100)
         if whole >= maxval:
             raise OverflowError(f"Value must be below {maxval}")
-        words = module.currency(whole, cents, code)
+        words = module.currency(whole, cents, code, explicit_one)
         if negative and (whole or cents):
             words = f"{module.NEGATIVE} {words}"
         return words
@@ -191,7 +201,8 @@ class NumberWordConverter:
         Raises:
             ValueError: If the language or mode is not supported, or the words are not a number.
             TypeError: If text is not a string.
-            OverflowError: If the number is at or above the largest value of the language.
+            OverflowError: If the number is at or above the largest value of the language, in any
+                mode but 'ordinal_num', which has no upper limit.
             NotImplementedError: If the language is not implemented yet.
         """
         if language not in self.languages:
@@ -210,7 +221,7 @@ class NumberWordConverter:
         if not tokens:
             raise ValueError("No number words to read")
         if to == "ordinal_num":
-            return self._checked(module.parse_ordinal_num(" ".join(tokens)), maxval)
+            return module.parse_ordinal_num(" ".join(tokens))
         items = [item for token in tokens for item in module.lex(token)]
         # "skip" items are ignored everywhere, "cskip" items only in the currency mode and
         # "yskip" items only in the year mode
