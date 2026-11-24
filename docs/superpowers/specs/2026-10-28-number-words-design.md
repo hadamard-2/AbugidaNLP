@@ -1,5 +1,12 @@
 # Number ↔ words for Amharic, Tigrinya and Afaan Oromoo
 
+> **Status (history, 2026-11-25):** this document records the design as approved on 2026-10-28. Several defaults have changed since, so treat the word lists and examples below as history, not as current behaviour. `docs/number_words.md` and the README are the current reference. Changes since approval:
+> - Amharic: 60 is ስልሳ (ስድሳ accepted); every ordinal is its cardinal plus "-ኛ", so 1000th is "አንድ ሺህኛ"; negative words accepted are አሉታዊ, አሉታ and ማይነስ (ሲቀነስ dropped).
+> - Tigrinya: "ሓደ" is written before a scale word ("ሓደ ሽሕ"); 1000 is ሽሕ; 6th–9th are ሻድሻይ, ሻብዓይ, ሻምናይ, ታሽዓይ; negative words accepted are ኣሉታዊ, ኔጌቲቭ, ነገቲቭ and ማይነስ (ሚነስ and አሉታ dropped).
+> - `to_words(..., explicit_one=False)` leaves out the leading "one" for Amharic and Tigrinya numbers from 100 to 199.
+> - Afaan Oromoo: a compound multiplier repeats its scale word ("kuma dhibba tokko fi kuma digdamii shan" is 125000); the parser also reads "fi" attached as "-f"/"-fi" and ordinals written as the plain word plus "ffaa".
+> - Numeric ordinals (`ordinal_num`) have no upper limit.
+
 ## Intent
 
 Add number-to-words and words-to-number conversion to AbugidaNLP for Amharic (`am`), Tigrinya (`ti`) and Afaan Oromoo (`om`). The driving use is normalizing an ASR dataset:

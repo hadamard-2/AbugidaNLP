@@ -1,5 +1,7 @@
 # Number ↔ Words Implementation Plan
 
+> **Status (history, 2026-11-25):** this plan has been carried out on branch `feat/number-words`, and several defaults have changed since; see the status note at the top of the design doc. Its word lists and test values are history, not current behaviour.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add `NumberWordConverter` to AbugidaNLP: one default written form from a number (`to_words`), and a number from any accepted spoken variant (`to_number`), for Amharic, Tigrinya and Afaan Oromoo, in the modes cardinal, ordinal, ordinal_num, year and currency.
