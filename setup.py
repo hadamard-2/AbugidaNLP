@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="abugida",
     version="0.5.0",
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={
         "abugida": ["SERA_table.json"],
     },
