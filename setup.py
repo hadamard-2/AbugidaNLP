@@ -11,6 +11,8 @@ setup(
         "abugida": ["SERA_table.json"],
     },
     install_requires=[],
+    license_expression="MIT",
+    license_files=["LICENSE"],
     python_requires=">=3.10",
     description="NLP tools and resources for Ethiopian languages",
     long_description=long_description,
@@ -20,7 +22,6 @@ setup(
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
-        "License :: OSI Approved :: MIT License",
     ],
     project_urls={
         "Source": "https://github.com/hadamard-2/abugidanlp",
